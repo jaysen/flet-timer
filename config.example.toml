@@ -1,0 +1,6 @@
+# flet-timer settings. Copy to ~/.config/flet-timer/config.toml and edit.
+# Every setting is optional; the values shown are the defaults.
+
+[timer]
+# Countdown start time in minutes (fractions allowed, e.g. 1.5).
+default_minutes = 25

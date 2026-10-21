@@ -23,6 +23,23 @@ uv run flet-timer                        # plain run via entry point
 
 Or press F5 in VS Code ("Flet: run app").
 
+## Config
+
+Optional. Settings are read from `~/.config/flet-timer/config.toml`
+(or `$XDG_CONFIG_HOME/flet-timer/config.toml`); anything left out uses the default.
+[config.example.toml](config.example.toml) lists every setting:
+
+```sh
+mkdir -p ~/.config/flet-timer 
+cp config.example.toml ~/.config/flet-timer/config.toml
+```
+
+To use a different file, e.g. a local one while developing (`config.toml` is gitignored):
+
+```sh
+FLET_TIMER_CONFIG=config.toml uv run flet-timer
+```
+
 ## Check
 
 ```sh
