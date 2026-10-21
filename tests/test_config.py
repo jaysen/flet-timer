@@ -48,6 +48,17 @@ def test_rejects_malformed_toml(tmp_path: Path) -> None:
         load_config(path)
 
 
+@pytest.fixture(autouse=True)
+def no_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FLET_TIMER_CONFIG", raising=False)
+
+
+def test_config_path_override_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("FLET_TIMER_CONFIG", str(tmp_path / "dev.toml"))
+    assert config_path() == tmp_path / "dev.toml"
+
+
 def test_config_path_honours_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     assert config_path() == tmp_path / "flet-timer" / "config.toml"

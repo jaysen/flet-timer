@@ -1,6 +1,7 @@
 """User settings, read from a TOML file.
 
 The file lives at ``$XDG_CONFIG_HOME/flet-timer/config.toml`` (``~/.config`` if unset).
+``$FLET_TIMER_CONFIG`` overrides that path, e.g. to use a local file while developing.
 It is optional: a missing file or missing keys fall back to the defaults below.
 """
 
@@ -27,6 +28,8 @@ class Config:
 
 
 def config_path() -> Path:
+    if override := os.environ.get("FLET_TIMER_CONFIG"):
+        return Path(override)
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     return Path(base) / "flet-timer" / "config.toml"
 
