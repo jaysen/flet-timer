@@ -3,6 +3,7 @@
 Time is read from an injectable clock so the logic can be tested without sleeping.
 """
 
+import re
 import time
 from collections.abc import Callable
 from enum import Enum, auto
@@ -57,10 +58,18 @@ class Countdown(Stopwatch):
     """Counts down from ``duration`` and finishes at zero."""
 
     def __init__(self, duration: float, clock: Clock = time.monotonic) -> None:
-        if duration <= 0:
-            raise ValueError("duration must be positive")
         super().__init__(clock)
         self.duration = duration
+
+    @property
+    def duration(self) -> float:
+        return self._duration
+
+    @duration.setter
+    def duration(self, seconds: float) -> None:
+        if seconds <= 0:
+            raise ValueError("duration must be positive")
+        self._duration = seconds
 
     @property
     def elapsed(self) -> float:
@@ -89,3 +98,33 @@ def format_seconds(seconds: float, *, round_up: bool = False) -> str:
     if hours:
         return f"{hours}:{minutes:02d}:{secs:02d}"
     return f"{minutes:02d}:{secs:02d}"
+
+
+UNIT_SECONDS = {"h": 3600, "m": 60, "s": 1}
+NUMBER = r"\d+(?:\.\d+)?"
+UNITS = re.compile(rf"(?:({NUMBER})\s*([hms])\s*)+")
+UNIT_PART = re.compile(rf"({NUMBER})\s*([hms])")
+
+
+def parse_duration(text: str) -> float | None:
+    """Seconds from ``25`` (minutes), ``1:30``, ``1:00:00`` or ``1h30m``; None if unusable."""
+    text = text.strip().lower()
+    if re.fullmatch(NUMBER, text):
+        seconds = float(text) * 60
+    elif re.fullmatch(r"\d+(?::\d+){1,2}", text):
+        *leading, last = (int(part) for part in text.split(":"))
+        # 1:90 is more likely a typo than 2:30, so only the first part may exceed 59.
+        if any(part > 59 for part in [*leading[1:], last]):
+            return None
+        seconds = 0
+        for part in [*leading, last]:
+            seconds = seconds * 60 + part
+    elif UNITS.fullmatch(text):
+        parts = UNIT_PART.findall(text)
+        units = [unit for _, unit in parts]
+        if len(set(units)) != len(units):
+            return None
+        seconds = sum(float(number) * UNIT_SECONDS[unit] for number, unit in parts)
+    else:
+        return None
+    return seconds if seconds > 0 else None

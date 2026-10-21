@@ -23,6 +23,9 @@ uv run flet-timer                        # plain run via entry point
 
 Or press F5 in VS Code ("Flet: run app").
 
+To set the countdown, click its time and type e.g. `25` (minutes), `1:30`, `1:00:00` or
+`1h30m`, then press Enter (Esc cancels). It starts at `[timer] default_minutes` from the config.
+
 ## Config
 
 Optional. Settings are read from `~/.config/flet-timer/config.toml`
