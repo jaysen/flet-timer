@@ -16,10 +16,12 @@ from pathlib import Path
 from flet_timer.timer import State, Stopwatch, format_seconds
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
+DEFAULT_TIME_FORMAT = "HH:mm:ss"
 DEFAULT_FILE = "{date}.log"
 DEFAULT_LINE_FORMAT = "{time}  {mode:<9}  {event:<6}  {elapsed}"
 
 DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
+TIME_TOKENS = re.compile("HH|hh|mm|ss|AM")
 FILE_PLACEHOLDERS = ("date", "label")
 # display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
 LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display", "label")
@@ -38,6 +40,18 @@ def format_date(date_format: str, day: date) -> str:
     """Replace YYYY, YY, MM and DD, e.g. ``YYYY-MM-DD`` -> ``2026-10-21``."""
     tokens = {"YYYY": f"{day:%Y}", "YY": f"{day:%y}", "MM": f"{day:%m}", "DD": f"{day:%d}"}
     return DATE_TOKENS.sub(lambda m: tokens[m[0]], date_format)
+
+
+def format_time(time_format: str, moment: datetime) -> str:
+    """Replace HH, hh (12-hour), mm, ss and AM (AM or PM), e.g. ``HH:mm`` -> ``14:05``."""
+    tokens = {
+        "HH": f"{moment:%H}",
+        "hh": f"{moment:%I}",
+        "mm": f"{moment:%M}",
+        "ss": f"{moment:%S}",
+        "AM": "AM" if moment.hour < 12 else "PM",
+    }
+    return TIME_TOKENS.sub(lambda m: tokens[m[0]], time_format)
 
 
 def template_error(template: str, placeholders: Iterable[str]) -> str | None:
@@ -68,12 +82,14 @@ class EventLog:
         folder: Path,
         file: str = DEFAULT_FILE,
         date_format: str = DEFAULT_DATE_FORMAT,
+        time_format: str = DEFAULT_TIME_FORMAT,
         line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
     ) -> None:
         self.folder = folder
         self.file = file
         self.date_format = date_format
+        self.time_format = time_format
         self.line_format = line_format
         self.now = now
         self._seen: dict[str, tuple[State, float, str]] = {}
@@ -93,7 +109,7 @@ class EventLog:
         path = self.folder / log_filename(self.file, self.date_format, stamp, label)
         line = self.line_format.format(
             date=format_date(self.date_format, stamp),
-            time=f"{stamp:%H:%M:%S}",
+            time=format_time(self.time_format, stamp),
             mode=mode,
             event=event,
             elapsed=format_seconds(elapsed),

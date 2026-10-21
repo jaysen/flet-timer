@@ -147,3 +147,18 @@ def test_rejects_invalid_line_format(tmp_path: Path, value: str, error: str) -> 
 def test_rejects_invalid_date_format(tmp_path: Path, value: str) -> None:
     with pytest.raises(ConfigError, match=r"log\.date_format"):
         load_config(write(tmp_path, f"[log]\ndate_format = {value}\n"))
+
+
+def test_time_format_default(tmp_path: Path) -> None:
+    assert load_config(tmp_path / "nope.toml").log_time_format == "HH:mm:ss"
+
+
+def test_reads_time_format(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, '[log]\ntime_format = "hh:mm AM"\n'))
+    assert config.log_time_format == "hh:mm AM"
+
+
+@pytest.mark.parametrize("value", ['""', "5"])
+def test_rejects_invalid_time_format(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.time_format"):
+        load_config(write(tmp_path, f"[log]\ntime_format = {value}\n"))

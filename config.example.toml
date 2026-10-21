@@ -15,6 +15,9 @@ default_minutes = 25
 # file = "{date}.log"
 # YYYY, YY, MM and DD are replaced, e.g. "YYYYMMDD" -> 20261021.
 # date_format = "YYYY-MM-DD"
+# Time for {time} in line_format. HH (24-hour), hh (12-hour), mm, ss and AM
+# (AM or PM) are replaced, e.g. "hh:mm AM" -> 02:05 PM.
+# time_format = "HH:mm:ss"
 # One line per event.
 # Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label}
 #   event:   start, pause, resume, stop or finish

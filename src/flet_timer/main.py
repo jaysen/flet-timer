@@ -30,7 +30,11 @@ def main(page: ft.Page, config: Config) -> None:
     current = STOPWATCH
     timer = timers[current]
     events = EventLog(
-        config.log_folder, config.log_file, config.log_date_format, config.log_line_format
+        config.log_folder,
+        config.log_file,
+        config.log_date_format,
+        config.log_time_format,
+        config.log_line_format,
     )
 
     mode = ft.SegmentedButton(
