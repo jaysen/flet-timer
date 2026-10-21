@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 
-from flet_timer.log import EventLog
+from flet_timer.log import EventLog, log_filename
 from flet_timer.timer import Countdown, Stopwatch
 
 
@@ -96,3 +96,25 @@ def test_creates_folder_and_appends_per_day(tmp_path: Path, clock: FakeClock) ->
     log.update("stopwatch", s)
     assert (folder / "2026-10-21.log").read_text().startswith("23:59:00  stopwatch  start")
     assert (folder / "2026-10-22.log").read_text().startswith("00:01:00  stopwatch  pause")
+
+
+@pytest.mark.parametrize(
+    ("name", "extension", "expected"),
+    [
+        ("YYYY-MM-DD", "log", "2026-10-21.log"),
+        ("YYYYMMDD", "md", "20261021.md"),
+        ("timer-YY.MM", "txt", "timer-26.10.txt"),
+        ("DD-MM-YYYY", "", "21-10-2026"),
+        ("timer", "md", "timer.md"),
+    ],
+)
+def test_log_filename(name: str, extension: str, expected: str) -> None:
+    assert log_filename(name, extension, date(2026, 10, 21)) == expected
+
+
+def test_writes_to_configured_file_name(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(tmp_path, "YYYYMMDD", "md", now=lambda: datetime(2026, 10, 21, 9, 30, 5))
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert (tmp_path / "20261021.md").read_text() == "09:30:05  stopwatch  start   00:00\n"

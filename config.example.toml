@@ -6,6 +6,12 @@
 default_minutes = 25
 
 [log]
-# Folder for the daily activity logs (YYYY-MM-DD.log). "~" is expanded and relative
+# Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/flet-timer/log
 # folder = "~/.local/share/flet-timer/log"
+
+# File name, without extension. YYYY, YY, MM and DD are replaced with the date,
+# e.g. "YYYYMMDD" -> 20261021. A name without them puts everything in one file.
+# name = "YYYY-MM-DD"
+# Extension, with or without the dot ("md" or ".md"). "" for none.
+# extension = "log"

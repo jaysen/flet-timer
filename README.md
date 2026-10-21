@@ -53,6 +53,14 @@ Every start, pause, resume, stop and finish is appended to a file per day in the
 
 The last column is the time on the clock when the event happened.
 
+The file name defaults to `YYYY-MM-DD.log`. To change it, e.g. to `20261021.md`:
+
+```toml
+[log]
+name = "YYYYMMDD"   # YYYY, YY, MM and DD are replaced with the date
+extension = "md"
+```
+
 ## Check
 
 ```sh

@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from flet_timer.log import DEFAULT_EXTENSION, DEFAULT_NAME
+
 DEFAULT_MINUTES = 5
 
 
@@ -27,6 +29,8 @@ def default_log_folder() -> Path:
 class Config:
     default_minutes: float = DEFAULT_MINUTES
     log_folder: Path = field(default_factory=default_log_folder)
+    log_name: str = DEFAULT_NAME
+    log_extension: str = DEFAULT_EXTENSION
 
     @property
     def default_seconds(self) -> float:
@@ -65,7 +69,26 @@ def load_config(path: Path | None = None) -> Config:
         log_folder = path.parent / Path(folder).expanduser()
     else:
         raise ConfigError(f"{path}: log.folder must be a non-empty string")
-    return Config(default_minutes=minutes, log_folder=log_folder)
+
+    name = log.get("name", DEFAULT_NAME)
+    if not _is_filename(name):
+        raise ConfigError(f"{path}: log.name must be a non-empty file name, without folders")
+    extension = log.get("extension", DEFAULT_EXTENSION)
+    if not isinstance(extension, str) or (extension and not _is_filename(extension)):
+        raise ConfigError(f'{path}: log.extension must be a string, e.g. "md"')
+    # Accept "md" or ".md"; an empty string means no extension.
+    extension = extension.removeprefix(".")
+
+    return Config(
+        default_minutes=minutes,
+        log_folder=log_folder,
+        log_name=name,
+        log_extension=extension,
+    )
+
+
+def _is_filename(value: object) -> bool:
+    return isinstance(value, str) and bool(value) and not any(c in value for c in "/\\")
 
 
 def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:

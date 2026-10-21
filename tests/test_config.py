@@ -88,3 +88,26 @@ def test_log_folder_expands_home(tmp_path: Path) -> None:
 def test_rejects_invalid_log_folder(tmp_path: Path, value: str) -> None:
     with pytest.raises(ConfigError, match=r"log\.folder"):
         load_config(write(tmp_path, f"[log]\nfolder = {value}\n"))
+
+
+def test_log_name_and_extension_default(tmp_path: Path) -> None:
+    config = load_config(tmp_path / "nope.toml")
+    assert (config.log_name, config.log_extension) == ("YYYY-MM-DD", "log")
+
+
+@pytest.mark.parametrize(("extension", "expected"), [('"md"', "md"), ('".md"', "md"), ('""', "")])
+def test_reads_log_name_and_extension(tmp_path: Path, extension: str, expected: str) -> None:
+    config = load_config(write(tmp_path, f'[log]\nname = "YYYYMMDD"\nextension = {extension}\n'))
+    assert (config.log_name, config.log_extension) == ("YYYYMMDD", expected)
+
+
+@pytest.mark.parametrize("value", ['""', '"YYYY/MM-DD"', "5"])
+def test_rejects_invalid_log_name(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.name"):
+        load_config(write(tmp_path, f"[log]\nname = {value}\n"))
+
+
+@pytest.mark.parametrize("value", ['"a/b"', "false", "5"])
+def test_rejects_invalid_log_extension(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.extension"):
+        load_config(write(tmp_path, f"[log]\nextension = {value}\n"))
