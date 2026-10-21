@@ -17,8 +17,8 @@ STOPWATCH = "stopwatch"
 
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
-    page.window.width = 450
-    page.window.height = 360
+    page.window.width = 380
+    page.window.height = 300
     page.window.title_bar_hidden = True
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
@@ -34,23 +34,35 @@ def main(page: ft.Page, config: Config) -> None:
     )
 
     mode = ft.SegmentedButton(
-        selected=[COUNTDOWN],
+        selected=[current],
         segments=[
-            ft.Segment(value=COUNTDOWN, label="Timer", icon=ft.Icons.HOURGLASS_BOTTOM),
-            ft.Segment(value=STOPWATCH, label="Stopwatch", icon=ft.Icons.TIMER),
+            ft.Segment(
+                value=COUNTDOWN,
+                label="Timer",
+            ),
+            ft.Segment(value=STOPWATCH, label="Stopwatch"),
         ],
+        show_selected_icon=False,
+        tooltip="Select mode",
+        style=ft.ButtonStyle(
+            padding=ft.Padding.symmetric(horizontal=20, vertical=0),
+            text_style=ft.TextStyle(size=12),
+            visual_density=ft.VisualDensity.COMPACT,
+        ),
     )
+    # A borderless caption above the time, so it reads as a title rather than a form field.
     label = ft.TextField(
-        hint_text="Label (optional)",
-        width=220,
-        height=36,
+        hint_text="Add a label",
+        width=260,
         dense=True,
-        text_size=14,
-        border_radius=18,
-        content_padding=ft.Padding.symmetric(horizontal=14, vertical=8),
+        text_size=16,
+        text_align=ft.TextAlign.CENTER,
+        border=ft.NoInputBorder(),
+        color=ft.Colors.ON_SURFACE_VARIANT,
+        hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
     )
-    display = ft.Text(timer.display(), size=64)
-    start_pause = ft.FilledButton("Start")
+    display = ft.Text(timer.display(), size=72, weight=ft.FontWeight.W_300)
+    start_pause = ft.FilledButton("Start", width=104)
 
     def log_state() -> None:
         events.update(current, timer, (label.value or "").strip())
@@ -136,17 +148,27 @@ def main(page: ft.Page, config: Config) -> None:
                     ),
                     ft.Column(
                         [
-                            label,
-                            display,
+                            ft.Column(
+                                [label, display],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=0,
+                            ),
                             ft.Row(
-                                [start_pause, ft.OutlinedButton("Reset", on_click=on_reset)],
+                                [
+                                    start_pause,
+                                    ft.OutlinedButton("Reset", width=104, on_click=on_reset),
+                                ],
                                 alignment=ft.MainAxisAlignment.CENTER,
+                                spacing=2,
                             ),
                         ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=4,
                         expand=True,
                     ),
+                    # Mirrors the top bar's height so the content sits in the true centre.
+                    ft.Container(height=26),
                 ],
                 expand=True,
             ),
