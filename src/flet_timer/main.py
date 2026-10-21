@@ -40,7 +40,15 @@ def main(page: ft.Page, config: Config) -> None:
             ft.Segment(value=STOPWATCH, label="Stopwatch", icon=ft.Icons.TIMER),
         ],
     )
-    label = ft.TextField(hint_text="Label (optional)", width=300, dense=True)
+    label = ft.TextField(
+        hint_text="Label (optional)",
+        width=220,
+        height=36,
+        dense=True,
+        text_size=14,
+        border_radius=18,
+        content_padding=ft.Padding.symmetric(horizontal=14, vertical=8),
+    )
     display = ft.Text(timer.display(), size=64)
     start_pause = ft.FilledButton("Start")
 
