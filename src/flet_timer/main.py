@@ -4,7 +4,7 @@ import asyncio
 
 import flet as ft
 
-from flet_timer.timer import Countdown, State, format_seconds
+from flet_timer.timer import Countdown, State
 
 DEFAULT_SECONDS = 5 * 60
 TICK_SECONDS = 0.2
@@ -19,11 +19,11 @@ def main(page: ft.Page) -> None:
     page.window.height = 250
 
     countdown = Countdown(DEFAULT_SECONDS)
-    display = ft.Text(format_seconds(countdown.remaining), size=64)
+    display = ft.Text(countdown.display(), size=64)
     start_pause = ft.FilledButton("Start")
 
     def render() -> None:
-        display.value = format_seconds(countdown.remaining)
+        display.value = countdown.display()
         start_pause.content = "Pause" if countdown.state is State.RUNNING else "Start"
         start_pause.disabled = countdown.state is State.FINISHED
         page.update()
