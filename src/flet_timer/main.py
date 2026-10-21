@@ -18,7 +18,7 @@ STOPWATCH = "stopwatch"
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
     page.window.width = 380
-    page.window.height = 280
+    page.window.height = 260
     page.window.title_bar_hidden = True
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
@@ -141,7 +141,7 @@ def main(page: ft.Page, config: Config) -> None:
                             ),
                         ],
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.START,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     ),
                     ft.Column(
                         [
@@ -156,16 +156,16 @@ def main(page: ft.Page, config: Config) -> None:
                                     ft.OutlinedButton("Reset", width=104, on_click=on_reset),
                                 ],
                                 alignment=ft.MainAxisAlignment.CENTER,
-                                spacing=2,
+                                spacing=8,
                             ),
                         ],
                         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                         alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=4,
+                        spacing=0,
                         expand=True,
                     ),
                     # Mirrors the top bar's height so the content sits in the true centre.
-                    ft.Container(height=26),
+                    ft.Container(height=24),
                 ],
                 expand=True,
             ),
