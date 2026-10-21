@@ -18,7 +18,7 @@ STOPWATCH = "stopwatch"
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
     page.window.width = 380
-    page.window.height = 300
+    page.window.height = 280
     page.window.title_bar_hidden = True
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
@@ -36,17 +36,14 @@ def main(page: ft.Page, config: Config) -> None:
     mode = ft.SegmentedButton(
         selected=[current],
         segments=[
-            ft.Segment(
-                value=COUNTDOWN,
-                label="Timer",
-            ),
+            ft.Segment(value=COUNTDOWN, label="Timer"),
             ft.Segment(value=STOPWATCH, label="Stopwatch"),
         ],
         show_selected_icon=False,
         tooltip="Select mode",
         style=ft.ButtonStyle(
-            padding=ft.Padding.symmetric(horizontal=20, vertical=0),
-            text_style=ft.TextStyle(size=12),
+            padding=ft.Padding.symmetric(horizontal=30, vertical=0),
+            text_style=ft.TextStyle(size=11),
             visual_density=ft.VisualDensity.COMPACT,
         ),
     )
