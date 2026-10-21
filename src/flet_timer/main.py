@@ -17,10 +17,11 @@ STOPWATCH = "stopwatch"
 
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.window.width = 450
     page.window.height = 360
+    page.window.title_bar_hidden = True
+    page.window.title_bar_buttons_hidden = True
+    page.padding = 4
 
     timers: dict[str, Stopwatch] = {
         COUNTDOWN: Countdown(config.default_seconds),
@@ -84,16 +85,59 @@ def main(page: ft.Page, config: Config) -> None:
         timer.reset()
         render()
 
+    def on_minimize(_: ft.Event[ft.IconButton]) -> None:
+        page.window.minimized = True
+        page.update()
+
+    async def on_close(_: ft.Event[ft.IconButton]) -> None:
+        await page.window.close()
+
+    def window_button(icon: ft.IconData, tooltip: str, on_click) -> ft.IconButton:
+        return ft.IconButton(
+            icon,
+            icon_size=14,
+            tooltip=tooltip,
+            on_click=on_click,
+            style=ft.ButtonStyle(padding=4),
+            width=26,
+            height=26,
+        )
+
     mode.on_change = on_mode_change
     start_pause.on_click = on_start_pause
+    # No title bar, so the whole window is the drag handle.
     page.add(
-        mode,
-        label,
-        display,
-        ft.Row(
-            [start_pause, ft.OutlinedButton("Reset", on_click=on_reset)],
-            alignment=ft.MainAxisAlignment.CENTER,
-        ),
+        ft.WindowDragArea(
+            ft.Column(
+                [
+                    ft.Row(
+                        [
+                            window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
+                            window_button(ft.Icons.CLOSE, "Close", on_close),
+                        ],
+                        alignment=ft.MainAxisAlignment.END,
+                        spacing=0,
+                    ),
+                    ft.Column(
+                        [
+                            mode,
+                            label,
+                            display,
+                            ft.Row(
+                                [start_pause, ft.OutlinedButton("Reset", on_click=on_reset)],
+                                alignment=ft.MainAxisAlignment.CENTER,
+                            ),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        expand=True,
+                    ),
+                ],
+                expand=True,
+            ),
+            maximizable=False,
+            expand=True,
+        )
     )
 
 
