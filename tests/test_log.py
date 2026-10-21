@@ -135,3 +135,21 @@ def test_writes_to_configured_file_name(tmp_path: Path, clock: FakeClock) -> Non
     s.start()
     log.update("stopwatch", s)
     assert (tmp_path / "flet-20261021.md").read_text() == "09:30:05  stopwatch  start   00:00\n"
+
+
+def test_appends_to_existing_file(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "2026-10-21.log").write_text("# Notes\n")
+    log = make_log(tmp_path)
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["# Notes", "09:30:05  stopwatch  start   00:00"]
+
+
+def test_starts_new_line_if_file_lacks_trailing_newline(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "2026-10-21.log").write_text("# Notes")
+    log = make_log(tmp_path)
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["# Notes", "09:30:05  stopwatch  start   00:00"]

@@ -4,6 +4,7 @@ Events are worked out from state changes, so the UI only has to report the timer
 state before and after each action, and on every tick.
 """
 
+import os
 import re
 from collections.abc import Callable
 from datetime import date, datetime
@@ -71,5 +72,21 @@ class EventLog:
         stamp = self.now()
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp)
+        line = f"{stamp:%H:%M:%S}  {mode:<9}  {event:<6}  {format_seconds(elapsed)}\n"
+        # The file may be a note edited by hand; don't glue the line onto its last one.
+        if not _ends_with_newline(path):
+            line = "\n" + line
         with path.open("a", encoding="utf-8") as f:
-            f.write(f"{stamp:%H:%M:%S}  {mode:<9}  {event:<6}  {format_seconds(elapsed)}\n")
+            f.write(line)
+
+
+def _ends_with_newline(path: Path) -> bool:
+    """True for a missing or empty file too: nothing to separate from."""
+    try:
+        with path.open("rb") as f:
+            if f.seek(0, os.SEEK_END) == 0:
+                return True
+            f.seek(-1, os.SEEK_END)
+            return f.read(1) == b"\n"
+    except FileNotFoundError:
+        return True
