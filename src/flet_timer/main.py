@@ -11,9 +11,12 @@ TICK_SECONDS = 0.2
 
 
 def main(page: ft.Page) -> None:
-    page.title = "Flet Timer"
+    page.title = "FLET-Timer"
+    page.title.format("FLET-Timer")
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
+    page.window.width = 450
+    page.window.height = 250
 
     countdown = Countdown(DEFAULT_SECONDS)
     display = ft.Text(format_seconds(countdown.remaining), size=64)
