@@ -108,7 +108,7 @@ def main(page: ft.Page, config: Config) -> None:
         time_field.value = display.value
         time_field.selection = ft.TextSelection(0, len(display.value or ""))
         time_field.visible = True
-        display.visible = False
+        time_display.visible = False
         page.update()
         await time_field.focus()
 
@@ -116,7 +116,7 @@ def main(page: ft.Page, config: Config) -> None:
         if not time_field.visible:
             return
         time_field.visible = False
-        display.visible = True
+        time_display.visible = True
         seconds = parse_duration(time_field.value or "") if apply else None
         if seconds is not None and isinstance(timer, Countdown):
             timer.duration = seconds
