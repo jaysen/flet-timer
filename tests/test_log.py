@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from flet_timer.log import EventLog, log_filename
+from flet_timer.log import EventLog, format_date, log_filename, unknown_placeholders
 from flet_timer.timer import Countdown, Stopwatch
 
 
@@ -99,22 +99,39 @@ def test_creates_folder_and_appends_per_day(tmp_path: Path, clock: FakeClock) ->
 
 
 @pytest.mark.parametrize(
-    ("name", "extension", "expected"),
+    ("date_format", "expected"),
     [
-        ("YYYY-MM-DD", "log", "2026-10-21.log"),
-        ("YYYYMMDD", "md", "20261021.md"),
-        ("timer-YY.MM", "txt", "timer-26.10.txt"),
-        ("DD-MM-YYYY", "", "21-10-2026"),
-        ("timer", "md", "timer.md"),
+        ("YYYY-MM-DD", "2026-10-21"),
+        ("YYYYMMDD", "20261021"),
+        ("DD.MM.YY", "21.10.26"),
     ],
 )
-def test_log_filename(name: str, extension: str, expected: str) -> None:
-    assert log_filename(name, extension, date(2026, 10, 21)) == expected
+def test_format_date(date_format: str, expected: str) -> None:
+    assert format_date(date_format, date(2026, 10, 21)) == expected
+
+
+@pytest.mark.parametrize(
+    ("file", "expected"),
+    [
+        ("{date}.log", "2026-10-21.log"),
+        ("flet-{date}.md", "flet-2026-10-21.md"),
+        ("SUMMARY-{date}", "SUMMARY-2026-10-21"),  # only {date} is replaced
+        ("timer.md", "timer.md"),
+    ],
+)
+def test_log_filename(file: str, expected: str) -> None:
+    assert log_filename(file, "YYYY-MM-DD", date(2026, 10, 21)) == expected
+
+
+def test_unknown_placeholders() -> None:
+    assert unknown_placeholders("{date}-{mode}-{}.md", {"date"}) == ["mode", ""]
 
 
 def test_writes_to_configured_file_name(tmp_path: Path, clock: FakeClock) -> None:
-    log = EventLog(tmp_path, "YYYYMMDD", "md", now=lambda: datetime(2026, 10, 21, 9, 30, 5))
+    log = EventLog(
+        tmp_path, "flet-{date}.md", "YYYYMMDD", now=lambda: datetime(2026, 10, 21, 9, 30, 5)
+    )
     s = Stopwatch(clock)
     s.start()
     log.update("stopwatch", s)
-    assert (tmp_path / "20261021.md").read_text() == "09:30:05  stopwatch  start   00:00\n"
+    assert (tmp_path / "flet-20261021.md").read_text() == "09:30:05  stopwatch  start   00:00\n"

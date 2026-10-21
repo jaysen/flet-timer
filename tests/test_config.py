@@ -90,24 +90,30 @@ def test_rejects_invalid_log_folder(tmp_path: Path, value: str) -> None:
         load_config(write(tmp_path, f"[log]\nfolder = {value}\n"))
 
 
-def test_log_name_and_extension_default(tmp_path: Path) -> None:
+def test_log_file_and_date_format_default(tmp_path: Path) -> None:
     config = load_config(tmp_path / "nope.toml")
-    assert (config.log_name, config.log_extension) == ("YYYY-MM-DD", "log")
+    assert (config.log_file, config.log_date_format) == ("{date}.log", "YYYY-MM-DD")
 
 
-@pytest.mark.parametrize(("extension", "expected"), [('"md"', "md"), ('".md"', "md"), ('""', "")])
-def test_reads_log_name_and_extension(tmp_path: Path, extension: str, expected: str) -> None:
-    config = load_config(write(tmp_path, f'[log]\nname = "YYYYMMDD"\nextension = {extension}\n'))
-    assert (config.log_name, config.log_extension) == ("YYYYMMDD", expected)
+def test_reads_log_file_and_date_format(tmp_path: Path) -> None:
+    config = load_config(
+        write(tmp_path, '[log]\nfile = "flet-{date}.md"\ndate_format = "YYYYMMDD"\n')
+    )
+    assert (config.log_file, config.log_date_format) == ("flet-{date}.md", "YYYYMMDD")
+
+
+@pytest.mark.parametrize("value", ['""', '"logs/{date}.md"', "5"])
+def test_rejects_invalid_log_file(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.file"):
+        load_config(write(tmp_path, f"[log]\nfile = {value}\n"))
+
+
+def test_rejects_unknown_placeholder(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match=r"\{dat\}"):
+        load_config(write(tmp_path, '[log]\nfile = "flet-{dat}.md"\n'))
 
 
 @pytest.mark.parametrize("value", ['""', '"YYYY/MM-DD"', "5"])
-def test_rejects_invalid_log_name(tmp_path: Path, value: str) -> None:
-    with pytest.raises(ConfigError, match=r"log\.name"):
-        load_config(write(tmp_path, f"[log]\nname = {value}\n"))
-
-
-@pytest.mark.parametrize("value", ['"a/b"', "false", "5"])
-def test_rejects_invalid_log_extension(tmp_path: Path, value: str) -> None:
-    with pytest.raises(ConfigError, match=r"log\.extension"):
-        load_config(write(tmp_path, f"[log]\nextension = {value}\n"))
+def test_rejects_invalid_date_format(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.date_format"):
+        load_config(write(tmp_path, f"[log]\ndate_format = {value}\n"))

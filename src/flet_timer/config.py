@@ -11,7 +11,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from flet_timer.log import DEFAULT_EXTENSION, DEFAULT_NAME
+from flet_timer.log import (
+    DEFAULT_DATE_FORMAT,
+    DEFAULT_FILE,
+    FILE_PLACEHOLDERS,
+    unknown_placeholders,
+)
 
 DEFAULT_MINUTES = 5
 
@@ -29,8 +34,8 @@ def default_log_folder() -> Path:
 class Config:
     default_minutes: float = DEFAULT_MINUTES
     log_folder: Path = field(default_factory=default_log_folder)
-    log_name: str = DEFAULT_NAME
-    log_extension: str = DEFAULT_EXTENSION
+    log_file: str = DEFAULT_FILE
+    log_date_format: str = DEFAULT_DATE_FORMAT
 
     @property
     def default_seconds(self) -> float:
@@ -70,20 +75,22 @@ def load_config(path: Path | None = None) -> Config:
     else:
         raise ConfigError(f"{path}: log.folder must be a non-empty string")
 
-    name = log.get("name", DEFAULT_NAME)
-    if not _is_filename(name):
-        raise ConfigError(f"{path}: log.name must be a non-empty file name, without folders")
-    extension = log.get("extension", DEFAULT_EXTENSION)
-    if not isinstance(extension, str) or (extension and not _is_filename(extension)):
-        raise ConfigError(f'{path}: log.extension must be a string, e.g. "md"')
-    # Accept "md" or ".md"; an empty string means no extension.
-    extension = extension.removeprefix(".")
+    file = log.get("file", DEFAULT_FILE)
+    if not _is_filename(file):
+        raise ConfigError(f"{path}: log.file must be a non-empty file name, without folders")
+    if unknown := unknown_placeholders(file, FILE_PLACEHOLDERS):
+        known = ", ".join(f"{{{name}}}" for name in sorted(FILE_PLACEHOLDERS))
+        raise ConfigError(f"{path}: log.file has unknown placeholder {{{unknown[0]}}} ({known})")
+    # The date ends up in the file name, so it follows the same rules.
+    date_format = log.get("date_format", DEFAULT_DATE_FORMAT)
+    if not _is_filename(date_format):
+        raise ConfigError(f"{path}: log.date_format must be a non-empty string, without / or \\")
 
     return Config(
         default_minutes=minutes,
         log_folder=log_folder,
-        log_name=name,
-        log_extension=extension,
+        log_file=file,
+        log_date_format=date_format,
     )
 
 
