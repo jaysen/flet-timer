@@ -1,12 +1,15 @@
 """Activity log: one line per timer event, in a file named after the date.
 
+The file name and line are ``str.format`` templates, so ``{mode:<9}`` pads and
+``{{`` / ``}}`` give literal braces.
+
 Events are worked out from state changes, so the UI only has to report the timer's
 state before and after each action, and on every tick.
 """
 
 import os
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
 
@@ -14,10 +17,12 @@ from flet_timer.timer import State, Stopwatch, format_seconds
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 DEFAULT_FILE = "{date}.log"
+DEFAULT_LINE_FORMAT = "{time}  {mode:<9}  {event:<6}  {elapsed}"
 
 DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
-PLACEHOLDER = re.compile(r"\{([^{}]*)\}")
-FILE_PLACEHOLDERS = {"date"}
+FILE_PLACEHOLDERS = ("date",)
+# display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
+LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display")
 
 EVENTS: dict[tuple[State, State], str] = {
     (State.IDLE, State.RUNNING): "start",
@@ -35,44 +40,64 @@ def format_date(date_format: str, day: date) -> str:
     return DATE_TOKENS.sub(lambda m: tokens[m[0]], date_format)
 
 
-def unknown_placeholders(template: str, known: set[str]) -> list[str]:
-    return [name for name in PLACEHOLDER.findall(template) if name not in known]
+def template_error(template: str, placeholders: Iterable[str]) -> str | None:
+    """Why ``template`` can't be filled from ``placeholders``, or None if it can."""
+    try:
+        template.format(**dict.fromkeys(placeholders, ""))
+    except KeyError as e:
+        return f"unknown placeholder {{{e.args[0]}}}"
+    except IndexError:
+        return "empty placeholder {}"
+    except (ValueError, AttributeError) as e:
+        return str(e)
+    return None
 
 
 def log_filename(file: str, date_format: str, day: date) -> str:
     """Fill ``{date}`` in ``file``, e.g. ``flet-{date}.md`` -> ``flet-2026-10-21.md``."""
-    return file.replace("{date}", format_date(date_format, day))
+    return file.format(date=format_date(date_format, day))
 
 
 class EventLog:
-    """Appends ``HH:MM:SS  mode  event  elapsed`` lines to a dated file in ``folder``."""
+    """Appends a ``line_format`` line per event to a dated file in ``folder``."""
 
     def __init__(
         self,
         folder: Path,
         file: str = DEFAULT_FILE,
         date_format: str = DEFAULT_DATE_FORMAT,
+        line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
     ) -> None:
         self.folder = folder
         self.file = file
         self.date_format = date_format
+        self.line_format = line_format
         self.now = now
-        self._seen: dict[str, tuple[State, float]] = {}
+        self._seen: dict[str, tuple[State, float, str]] = {}
 
     def update(self, mode: str, timer: Stopwatch) -> None:
-        state, elapsed = timer.state, timer.elapsed
-        before, last_elapsed = self._seen.get(mode, (State.IDLE, 0.0))
-        self._seen[mode] = (state, elapsed)
-        if event := EVENTS.get((before, state)):
+        seen = timer.state, timer.elapsed, timer.display()
+        before = self._seen.get(mode, (State.IDLE, 0.0, ""))
+        self._seen[mode] = seen
+        if event := EVENTS.get((before[0], seen[0])):
             # A stop has already reset the timer, so report the time it had reached.
-            self._write(mode, event, last_elapsed if event == "stop" else elapsed)
+            _, elapsed, display = before if event == "stop" else seen
+            self._write(mode, event, elapsed, display)
 
-    def _write(self, mode: str, event: str, elapsed: float) -> None:
+    def _write(self, mode: str, event: str, elapsed: float, display: str) -> None:
         stamp = self.now()
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp)
-        line = f"{stamp:%H:%M:%S}  {mode:<9}  {event:<6}  {format_seconds(elapsed)}\n"
+        line = self.line_format.format(
+            date=format_date(self.date_format, stamp),
+            time=f"{stamp:%H:%M:%S}",
+            mode=mode,
+            event=event,
+            elapsed=format_seconds(elapsed),
+            display=display,
+        )
+        line += "\n"
         # The file may be a note edited by hand; don't glue the line onto its last one.
         if not _ends_with_newline(path):
             line = "\n" + line

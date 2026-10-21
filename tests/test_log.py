@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from flet_timer.log import EventLog, format_date, log_filename, unknown_placeholders
+from flet_timer.log import EventLog, format_date, log_filename, template_error
 from flet_timer.timer import Countdown, Stopwatch
 
 
@@ -123,8 +123,17 @@ def test_log_filename(file: str, expected: str) -> None:
     assert log_filename(file, "YYYY-MM-DD", date(2026, 10, 21)) == expected
 
 
-def test_unknown_placeholders() -> None:
-    assert unknown_placeholders("{date}-{mode}-{}.md", {"date"}) == ["mode", ""]
+@pytest.mark.parametrize(
+    ("template", "error"),
+    [
+        ("{date}-{mode:<9} {{literal}}", None),
+        ("{dat}", "unknown placeholder {dat}"),
+        ("{}", "empty placeholder {}"),
+        ("{date", "expected '}' before end of string"),
+    ],
+)
+def test_template_error(template: str, error: str | None) -> None:
+    assert template_error(template, ("date", "mode")) == error
 
 
 def test_writes_to_configured_file_name(tmp_path: Path, clock: FakeClock) -> None:
@@ -153,3 +162,23 @@ def test_starts_new_line_if_file_lacks_trailing_newline(tmp_path: Path, clock: F
     s.start()
     log.update("stopwatch", s)
     assert lines(tmp_path) == ["# Notes", "09:30:05  stopwatch  start   00:00"]
+
+
+def test_line_format(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format=" - {date} {time} - {mode} {event} {elapsed} ({display})",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+    )
+    c = Countdown(300, clock)
+    c.start()
+    log.update("countdown", c)
+    clock.now = 65
+    log.update("countdown", c)  # as the UI does just before acting
+    c.reset()
+    log.update("countdown", c)
+    assert lines(tmp_path) == [
+        " - 2026-10-21 09:30:05 - countdown start 00:00 (05:00)",
+        # a stop reports the time reached, not the reset values
+        " - 2026-10-21 09:30:05 - countdown stop 01:05 (03:55)",
+    ]

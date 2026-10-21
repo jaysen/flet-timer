@@ -28,7 +28,9 @@ def main(page: ft.Page, config: Config) -> None:
     }
     current = COUNTDOWN
     timer = timers[current]
-    events = EventLog(config.log_folder, config.log_file, config.log_date_format)
+    events = EventLog(
+        config.log_folder, config.log_file, config.log_date_format, config.log_line_format
+    )
 
     mode = ft.SegmentedButton(
         selected=[COUNTDOWN],

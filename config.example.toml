@@ -15,3 +15,8 @@ default_minutes = 25
 # file = "{date}.log"
 # YYYY, YY, MM and DD are replaced, e.g. "YYYYMMDD" -> 20261021.
 # date_format = "YYYY-MM-DD"
+# One line per event. Placeholders: {date} {time} {mode} {event} {elapsed} {display}
+#   event:   start, pause, resume, stop or finish
+#   elapsed: time run so far; display: what the timer showed (countdown: time left)
+# Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
+# line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"

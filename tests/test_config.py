@@ -109,8 +109,31 @@ def test_rejects_invalid_log_file(tmp_path: Path, value: str) -> None:
 
 
 def test_rejects_unknown_placeholder(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match=r"\{dat\}"):
+    with pytest.raises(ConfigError, match=r"log\.file: unknown placeholder \{dat\}"):
         load_config(write(tmp_path, '[log]\nfile = "flet-{dat}.md"\n'))
+
+
+def test_line_format_default(tmp_path: Path) -> None:
+    config = load_config(tmp_path / "nope.toml")
+    assert config.log_line_format == "{time}  {mode:<9}  {event:<6}  {elapsed}"
+
+
+def test_reads_line_format(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, '[log]\nline_format = " - {time} {event}"\n'))
+    assert config.log_line_format == " - {time} {event}"
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        ('"{state}"', r"unknown placeholder \{state\}"),
+        ('"{time"', "expected '}'"),
+        ("5", "must be a string"),
+    ],
+)
+def test_rejects_invalid_line_format(tmp_path: Path, value: str, error: str) -> None:
+    with pytest.raises(ConfigError, match=rf"log\.line_format.*{error}"):
+        load_config(write(tmp_path, f"[log]\nline_format = {value}\n"))
 
 
 @pytest.mark.parametrize("value", ['""', '"YYYY/MM-DD"', "5"])
