@@ -1,19 +1,20 @@
 """Flet UI entry point. Keep this thin: behaviour lives in timer.py."""
 
 import asyncio
+from functools import partial
 
 import flet as ft
 
+from flet_timer.config import Config, load_config
 from flet_timer.timer import Countdown, State, Stopwatch
 
-DEFAULT_SECONDS = 5 * 60
 TICK_SECONDS = 0.2
 
 COUNTDOWN = "countdown"
 STOPWATCH = "stopwatch"
 
 
-def main(page: ft.Page) -> None:
+def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
@@ -21,7 +22,7 @@ def main(page: ft.Page) -> None:
     page.window.height = 300
 
     timers: dict[str, Stopwatch] = {
-        COUNTDOWN: Countdown(DEFAULT_SECONDS),
+        COUNTDOWN: Countdown(config.default_seconds),
         STOPWATCH: Stopwatch(),
     }
     timer = timers[COUNTDOWN]
@@ -80,7 +81,8 @@ def main(page: ft.Page) -> None:
 
 
 def run() -> None:
-    ft.run(main)
+    # Load before opening the window so a bad config fails fast with a readable error.
+    ft.run(partial(main, config=load_config()))
 
 
 if __name__ == "__main__":
