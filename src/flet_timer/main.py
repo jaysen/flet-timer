@@ -20,7 +20,7 @@ def main(page: ft.Page, config: Config) -> None:
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.vertical_alignment = ft.MainAxisAlignment.CENTER
     page.window.width = 450
-    page.window.height = 300
+    page.window.height = 360
 
     timers: dict[str, Stopwatch] = {
         COUNTDOWN: Countdown(config.default_seconds),
@@ -39,11 +39,15 @@ def main(page: ft.Page, config: Config) -> None:
             ft.Segment(value=STOPWATCH, label="Stopwatch", icon=ft.Icons.TIMER),
         ],
     )
+    label = ft.TextField(hint_text="Label (optional)", width=300, dense=True)
     display = ft.Text(timer.display(), size=64)
     start_pause = ft.FilledButton("Start")
 
+    def log_state() -> None:
+        events.update(current, timer, (label.value or "").strip())
+
     def render() -> None:
-        events.update(current, timer)
+        log_state()
         display.value = timer.display()
         start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
         start_pause.disabled = timer.state is State.FINISHED
@@ -58,16 +62,16 @@ def main(page: ft.Page, config: Config) -> None:
 
     def on_mode_change(_: ft.Event[ft.SegmentedButton]) -> None:
         nonlocal current, timer
-        events.update(current, timer)
+        log_state()
         timer.reset()
-        events.update(current, timer)
+        log_state()
         current = mode.selected[0]
         timer = timers[current]
         render()
 
     def on_start_pause(_: ft.Event[ft.Button]) -> None:
         # Note the state just before acting, so a pause or stop logs the exact time.
-        events.update(current, timer)
+        log_state()
         if timer.state is State.RUNNING:
             timer.pause()
             render()
@@ -76,7 +80,7 @@ def main(page: ft.Page, config: Config) -> None:
             page.run_task(tick)
 
     def on_reset(_: ft.Event[ft.OutlinedButton]) -> None:
-        events.update(current, timer)
+        log_state()
         timer.reset()
         render()
 
@@ -84,6 +88,7 @@ def main(page: ft.Page, config: Config) -> None:
     start_pause.on_click = on_start_pause
     page.add(
         mode,
+        label,
         display,
         ft.Row(
             [start_pause, ft.OutlinedButton("Reset", on_click=on_reset)],

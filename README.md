@@ -62,8 +62,9 @@ date_format = "YYYYMMDD"   # YYYY, YY, MM and DD are replaced
 line_format = " - {time} - {mode} {event} {display}"
 ```
 
-`line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}` and `{display}`
-(what the timer showed, so time left for a countdown). See
+`line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`
+(what the timer showed, so time left for a countdown) and `{label}` (the label typed in
+the app). `file` can use `{date}` and `{label}`. See
 [config.example.toml](config.example.toml) for details.
 
 ## Check

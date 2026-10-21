@@ -117,10 +117,11 @@ def test_format_date(date_format: str, expected: str) -> None:
         ("flet-{date}.md", "flet-2026-10-21.md"),
         ("SUMMARY-{date}", "SUMMARY-2026-10-21"),  # only {date} is replaced
         ("timer.md", "timer.md"),
+        ("{date}-{label}.md", "2026-10-21-client-a-b.md"),  # no folders from the label
     ],
 )
 def test_log_filename(file: str, expected: str) -> None:
-    assert log_filename(file, "YYYY-MM-DD", date(2026, 10, 21)) == expected
+    assert log_filename(file, "YYYY-MM-DD", date(2026, 10, 21), "client/a\\b") == expected
 
 
 @pytest.mark.parametrize(
@@ -182,3 +183,16 @@ def test_line_format(tmp_path: Path, clock: FakeClock) -> None:
         # a stop reports the time reached, not the reset values
         " - 2026-10-21 09:30:05 - countdown stop 01:05 (03:55)",
     ]
+
+
+def test_label_in_line_and_file(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        file="{label}.log",
+        line_format="{event} {label}",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s, "writing")
+    assert (tmp_path / "writing.log").read_text() == "start writing\n"
