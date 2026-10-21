@@ -4,3 +4,8 @@
 [timer]
 # Countdown start time in minutes (fractions allowed, e.g. 1.5).
 default_minutes = 25
+
+[log]
+# Folder for the daily activity logs (YYYY-MM-DD.log). "~" is expanded and relative
+# paths are taken from this file's folder. Default: ~/.local/share/flet-timer/log
+# folder = "~/.local/share/flet-timer/log"

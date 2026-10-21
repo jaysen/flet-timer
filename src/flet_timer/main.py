@@ -6,6 +6,7 @@ from functools import partial
 import flet as ft
 
 from flet_timer.config import Config, load_config
+from flet_timer.log import EventLog
 from flet_timer.timer import Countdown, State, Stopwatch
 
 TICK_SECONDS = 0.2
@@ -25,7 +26,9 @@ def main(page: ft.Page, config: Config) -> None:
         COUNTDOWN: Countdown(config.default_seconds),
         STOPWATCH: Stopwatch(),
     }
-    timer = timers[COUNTDOWN]
+    current = COUNTDOWN
+    timer = timers[current]
+    events = EventLog(config.log_folder)
 
     mode = ft.SegmentedButton(
         selected=[COUNTDOWN],
@@ -38,6 +41,7 @@ def main(page: ft.Page, config: Config) -> None:
     start_pause = ft.FilledButton("Start")
 
     def render() -> None:
+        events.update(current, timer)
         display.value = timer.display()
         start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
         start_pause.disabled = timer.state is State.FINISHED
@@ -51,12 +55,17 @@ def main(page: ft.Page, config: Config) -> None:
         render()
 
     def on_mode_change(_: ft.Event[ft.SegmentedButton]) -> None:
-        nonlocal timer
+        nonlocal current, timer
+        events.update(current, timer)
         timer.reset()
-        timer = timers[mode.selected[0]]
+        events.update(current, timer)
+        current = mode.selected[0]
+        timer = timers[current]
         render()
 
     def on_start_pause(_: ft.Event[ft.Button]) -> None:
+        # Note the state just before acting, so a pause or stop logs the exact time.
+        events.update(current, timer)
         if timer.state is State.RUNNING:
             timer.pause()
             render()
@@ -65,6 +74,7 @@ def main(page: ft.Page, config: Config) -> None:
             page.run_task(tick)
 
     def on_reset(_: ft.Event[ft.OutlinedButton]) -> None:
+        events.update(current, timer)
         timer.reset()
         render()
 
