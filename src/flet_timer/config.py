@@ -7,7 +7,7 @@ It is optional: a missing file or missing keys fall back to the defaults below.
 
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -18,9 +18,15 @@ class ConfigError(Exception):
     """The config file exists but cannot be used."""
 
 
+def default_log_folder() -> Path:
+    base = os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"
+    return Path(base) / "flet-timer" / "log"
+
+
 @dataclass(frozen=True)
 class Config:
     default_minutes: float = DEFAULT_MINUTES
+    log_folder: Path = field(default_factory=default_log_folder)
 
     @property
     def default_seconds(self) -> float:
@@ -49,7 +55,17 @@ def load_config(path: Path | None = None) -> Config:
     # bool is an int subclass, so `true` would otherwise pass as 1 minute.
     if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes <= 0:
         raise ConfigError(f"{path}: timer.default_minutes must be a positive number")
-    return Config(default_minutes=minutes)
+
+    log = _section(data, "log", path)
+    folder = log.get("folder")
+    if folder is None:
+        log_folder = default_log_folder()
+    elif isinstance(folder, str) and folder:
+        # Relative paths are taken from the config file's folder, not wherever the app runs.
+        log_folder = path.parent / Path(folder).expanduser()
+    else:
+        raise ConfigError(f"{path}: log.folder must be a non-empty string")
+    return Config(default_minutes=minutes, log_folder=log_folder)
 
 
 def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:

@@ -67,3 +67,24 @@ def test_config_path_honours_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 def test_config_path_falls_back_to_dot_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     assert config_path() == Path.home() / ".config" / "flet-timer" / "config.toml"
+
+
+def test_log_folder_defaults_to_xdg_data(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    assert load_config(tmp_path / "nope.toml").log_folder == tmp_path / "flet-timer" / "log"
+
+
+def test_log_folder_relative_to_config_file(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, '[log]\nfolder = "logs"\n'))
+    assert config.log_folder == tmp_path / "logs"
+
+
+def test_log_folder_expands_home(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, '[log]\nfolder = "~/wiki/log"\n'))
+    assert config.log_folder == Path.home() / "wiki" / "log"
+
+
+@pytest.mark.parametrize("value", ['""', "5"])
+def test_rejects_invalid_log_folder(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"log\.folder"):
+        load_config(write(tmp_path, f"[log]\nfolder = {value}\n"))

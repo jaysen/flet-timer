@@ -40,6 +40,19 @@ To use a different file, e.g. a local one while developing (`config.toml` is git
 FLET_TIMER_CONFIG=config.toml uv run flet-timer
 ```
 
+## Log
+
+Every start, pause, resume, stop and finish is appended to a file per day in the log folder
+(`~/.local/share/flet-timer/log/` unless `[log] folder` is set in the config):
+
+```text
+09:30:05  countdown  start   00:00
+09:42:17  countdown  pause   12:12
+09:55:05  countdown  finish  25:00
+```
+
+The last column is the time on the clock when the event happened.
+
 ## Check
 
 ```sh
