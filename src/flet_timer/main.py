@@ -112,15 +112,22 @@ def main(page: ft.Page, config: Config) -> None:
                 [
                     ft.Row(
                         [
-                            window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
-                            window_button(ft.Icons.CLOSE, "Close", on_close),
+                            # Balances the window buttons so the mode toggle sits centred.
+                            ft.Container(width=52),
+                            mode,
+                            ft.Row(
+                                [
+                                    window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
+                                    window_button(ft.Icons.CLOSE, "Close", on_close),
+                                ],
+                                spacing=0,
+                            ),
                         ],
-                        alignment=ft.MainAxisAlignment.END,
-                        spacing=0,
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.START,
                     ),
                     ft.Column(
                         [
-                            mode,
                             label,
                             display,
                             ft.Row(
