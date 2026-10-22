@@ -139,6 +139,7 @@ leave out from it:
 [profiles.work]
 default_minutes = 50
 default_label = "admin"   # logged when the label field is empty
+mode = "stopwatch"        # only the stopwatch; "countdown" for only the timer
 folder = "~/work/timesheets"
 file = "timesheet-{date}.csv"
 line_format = "{date},{time},{label},{event},{elapsed}"
@@ -147,6 +148,9 @@ line_format = "{date},{time},{label},{event},{elapsed}"
 Once the config has a profile besides `default`, a picker appears at the bottom of the window. It is
 locked while a timer runs or is paused, so a session stays in one log. Switching changes
 where the next events go, and an untouched countdown takes the profile's default minutes.
+A profile with a `mode` switches to it and locks the mode switch; if a timer is running
+or paused at the time, e.g. after editing the config, it switches once that timer is
+reset.
 The app reopens on the profile picked last, which it remembers in
 `~/.local/state/tokolog-flet/state.json`.
 

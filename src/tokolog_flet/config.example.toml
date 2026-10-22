@@ -11,6 +11,9 @@
 default_minutes = 25
 # Label logged when the label field is left empty. Unset, the mode is used.
 # default_label = "journal"
+# The only mode the profile allows: "countdown" or "stopwatch". The app switches to it
+# and locks the mode switch. "any" allows both.
+# mode = "any"
 
 # Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/tokolog-flet/log
@@ -90,8 +93,9 @@ default_minutes = 25
 # stop   = "{date},{started},{time},{label},{elapsed},{paused}"
 # finish = "{date},{started},{time},{label},{elapsed},{paused}"
 
-# Pomodoro: 25-minute focus blocks; pauses aren't logged.
+# Pomodoro: 25-minute focus blocks, timer only; pauses aren't logged.
 # [profiles.pomodoro]
+# mode = "countdown"
 # default_minutes = 25
 # default_label = "focus"
 # time_format = "HH:mm"
