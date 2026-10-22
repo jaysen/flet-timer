@@ -1,6 +1,7 @@
-# Tokolog-flet
+# Tok-o-log (flet)
 
-Functional play with [Flet UI](https://flet.dev).. a desktop countdown timer and stopwatch that logs to my wiki
+Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in a configurable format, to a configurable file - in my case: a journal page in wiki
+
 
 ## Setup
 
