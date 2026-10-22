@@ -189,7 +189,7 @@ def test_setting_text_blank_when_unset() -> None:
 
 def test_apply_settings_sets_and_clears() -> None:
     data = {"timer": {"default_minutes": 25}, "log": {"file": "a.md", "extra": 1}}
-    values = {"timer.default_minutes": "", "log.file": "b.md", "log.folder": " logs "}
+    values = {"timer.default_minutes": " ", "log.file": "b.md", "log.folder": "logs"}
     assert apply_settings(data, values) == {"log": {"file": "b.md", "extra": 1, "folder": "logs"}}
     assert data["log"]["file"] == "a.md"  # input untouched
 
@@ -201,6 +201,14 @@ def test_apply_settings_minutes_become_numbers() -> None:
     }
     with pytest.raises(ConfigError, match="default_minutes"):
         apply_settings({}, {"timer.default_minutes": "abc"})
+
+
+def test_apply_settings_keeps_spaces() -> None:
+    values = {"log.line_format": " - {time} ", "timer.default_minutes": " 25 "}
+    assert apply_settings({}, values) == {
+        "timer": {"default_minutes": 25},
+        "log": {"line_format": " - {time} "},
+    }
 
 
 def test_apply_settings_all_blank_is_empty() -> None:

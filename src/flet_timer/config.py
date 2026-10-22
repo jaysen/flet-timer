@@ -141,6 +141,7 @@ class Setting:
     name: str
     label: str
     default: str
+    help: str
 
     @property
     def key(self) -> str:
@@ -150,13 +151,50 @@ class Setting:
 def _setting_defaults() -> list[Setting]:
     config = Config()
     return [
-        Setting("timer", "default_minutes", "Default minutes", f"{config.default_minutes:g}"),
-        Setting("log", "folder", "Log folder", str(config.log_folder)),
-        Setting("log", "file", "Log file", config.log_file),
-        Setting("log", "date_format", "Date format", config.log_date_format),
-        Setting("log", "time_format", "Time format", config.log_time_format),
-        Setting("log", "line_format", "Line format", config.log_line_format),
+        Setting(
+            "timer",
+            "default_minutes",
+            "Default minutes",
+            f"{config.default_minutes:g}",
+            "Countdown start time; fractions allowed, e.g. 1.5",
+        ),
+        Setting(
+            "log",
+            "folder",
+            "Folder",
+            _tilde(config.log_folder),
+            "~ is expanded; relative paths start at the config file's folder",
+        ),
+        Setting("log", "file", "File name", config.log_file, "{date} and {label} are replaced"),
+        Setting(
+            "log",
+            "date_format",
+            "Date format",
+            config.log_date_format,
+            "YYYY, YY, MM and DD are replaced",
+        ),
+        Setting(
+            "log",
+            "time_format",
+            "Time format",
+            config.log_time_format,
+            "HH, hh (12-hour), mm, ss and AM are replaced",
+        ),
+        Setting(
+            "log",
+            "line_format",
+            "Line format",
+            config.log_line_format,
+            "{date} {time} {mode} {event} {elapsed} {display} {label}",
+        ),
     ]
+
+
+def _tilde(path: Path) -> str:
+    try:
+        return str(Path("~") / path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
 
 
 SETTINGS = _setting_defaults()
@@ -172,18 +210,19 @@ def setting_text(data: dict[str, Any], setting: Setting) -> str:
 def apply_settings(data: dict[str, Any], values: dict[str, str]) -> dict[str, Any]:
     """Copy of ``data`` with each setting in ``values`` (by key) set, or removed if blank.
 
+    Text is kept as typed: spaces can matter, e.g. at the start of a line format.
     Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
     """
     result = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
     for setting in SETTINGS:
-        text = values.get(setting.key, "").strip()
+        text = values.get(setting.key, "")
         section = result.setdefault(setting.section, {})
         if not isinstance(section, dict):
             raise ConfigError(f"[{setting.section}] must be a table")
-        if not text:
+        if not text.strip():
             section.pop(setting.name, None)
         elif setting.key == "timer.default_minutes":
-            section[setting.name] = _number(text, setting.key)
+            section[setting.name] = _number(text.strip(), setting.key)
         else:
             section[setting.name] = text
     return {k: v for k, v in result.items() if v != {}}

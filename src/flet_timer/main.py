@@ -7,7 +7,7 @@ import flet as ft
 
 from flet_timer.config import Config, config_path, load_config
 from flet_timer.log import EventLog
-from flet_timer.settings import open_settings
+from flet_timer.settings import WINDOW_SIZE, open_settings
 from flet_timer.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
@@ -15,7 +15,6 @@ TICK_SECONDS = 0.2
 COUNTDOWN = "countdown"
 SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
 STOPWATCH = "stopwatch"
-SETTINGS_HEIGHT = 600
 
 
 def main(page: ft.Page, config: Config) -> None:
@@ -159,11 +158,11 @@ def main(page: ft.Page, config: Config) -> None:
 
     def on_settings(_: ft.Event[ft.IconButton]) -> None:
         finish_setting_time(apply=False)
-        height = page.window.height
-        page.window.height = SETTINGS_HEIGHT
+        size = page.window.width, page.window.height
+        page.window.width, page.window.height = WINDOW_SIZE
 
         def restore_window() -> None:
-            page.window.height = height
+            page.window.width, page.window.height = size
             page.update()
 
         open_settings(page, config_path(), apply_config, restore_window)
