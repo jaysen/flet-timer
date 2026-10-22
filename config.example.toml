@@ -22,6 +22,6 @@ default_minutes = 25
 # Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label}
 #   event:   start, pause, resume, stop or finish
 #   elapsed: time run so far; display: what the timer showed (countdown: time left)
-#   label:   the label typed in the app, empty if none
+#   label:   the label typed in the app, or the mode if none
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
