@@ -36,7 +36,9 @@ def default_log_folder() -> Path:
 
 
 @dataclass(frozen=True)
-class Config:
+class Profile:
+    """Timer default and log settings: what a profile can set."""
+
     default_minutes: float = DEFAULT_MINUTES
     log_folder: Path = field(default_factory=default_log_folder)
     log_file: str = DEFAULT_FILE
@@ -47,6 +49,20 @@ class Config:
     @property
     def default_seconds(self) -> float:
         return self.default_minutes * 60
+
+
+DEFAULT_PROFILE = "default"
+
+
+@dataclass(frozen=True)
+class Config(Profile):
+    """The default profile (``[timer]`` and ``[log]``) plus the named ones."""
+
+    profiles: dict[str, Profile] = field(default_factory=dict, hash=False)
+
+    def profile(self, name: str) -> Profile:
+        """The named profile; the default one for ``default`` or a name not in the file."""
+        return self.profiles.get(name, self)
 
 
 def config_path() -> Path:
