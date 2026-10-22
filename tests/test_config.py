@@ -241,29 +241,51 @@ def test_default_label(tmp_path: Path) -> None:
         load_config(write(tmp_path, "[profiles.default]\ndefault_label = 5\n"))
 
 
-def test_mode_line_formats(tmp_path: Path) -> None:
+def test_lines(tmp_path: Path) -> None:
     config = load_config(
         write(
             tmp_path,
-            '[profiles.default]\nline_format_countdown = "{event} {timer_minutes}"\n'
+            "[profiles.default.lines]\n"
+            'stop = "{event} {elapsed}"\n'
+            'pause = ""\n'
+            '"countdown.start" = "{timer_minutes}m"\n'
+            'stopwatch.finish = "done"\n'  # unquoted: a nested table in TOML
             "[profiles.focus]\n"
             '[profiles.work]\nline_format = "{event}"\n'
-            '[profiles.mixed]\nline_format = "{event}"\nline_format_stopwatch = "{elapsed}"\n',
+            '[profiles.mixed]\nline_format = "{event}"\n[profiles.mixed.lines]\nresume = ""\n',
         )
     )
-    assert Config().log_line_format_countdown == ""
-    assert config.log_line_format_countdown == "{event} {timer_minutes}"
-    assert config.log_line_format_stopwatch == ""
-    assert config.profile("focus").log_line_format_countdown == "{event} {timer_minutes}"
-    # Its own line_format replaces the per-mode line it would otherwise inherit.
-    assert config.profile("work").log_line_format_countdown == ""
-    mixed = config.profile("mixed")
-    assert (mixed.log_line_format_countdown, mixed.log_line_format_stopwatch) == ("", "{elapsed}")
+    expected = {
+        "stop": "{event} {elapsed}",
+        "pause": "",
+        "countdown.start": "{timer_minutes}m",
+        "stopwatch.finish": "done",
+    }
+    assert Config().log_lines == {}
+    assert config.log_lines == expected
+    assert config.profile("focus").log_lines == expected
+    # Its own line_format replaces the lines it would otherwise inherit.
+    assert config.profile("work").log_lines == {}
+    assert config.profile("mixed").log_lines == {"resume": ""}
 
 
-def test_rejects_invalid_mode_line_format(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match=r"profiles\.default\.line_format_stopwatch: unknown"):
-        load_config(write(tmp_path, '[profiles.default]\nline_format_stopwatch = "{nope}"\n'))
+@pytest.mark.parametrize(
+    ("lines", "error"),
+    [
+        ('halt = ""', r"lines\.halt: not an event"),
+        ('"countdown.halt" = ""', r"lines\.countdown\.halt: not an event"),
+        ("stop = 5", r"lines\.stop must be a string"),
+        ('stop = "{nope}"', r"lines\.stop: unknown placeholder"),
+    ],
+)
+def test_rejects_invalid_lines(tmp_path: Path, lines: str, error: str) -> None:
+    with pytest.raises(ConfigError, match=rf"profiles\.default\.{error}"):
+        load_config(write(tmp_path, f"[profiles.default.lines]\n{lines}\n"))
+
+
+def test_rejects_non_table_lines(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match=r"\[profiles\.default\.lines\] must be a table"):
+        load_config(write(tmp_path, '[profiles.default]\nlines = "x"\n'))
 
 
 def test_create_config_writes_template_once(tmp_path: Path) -> None:

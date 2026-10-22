@@ -19,14 +19,18 @@ from tokolog_flet.log import (
     DEFAULT_FILE,
     DEFAULT_LINE_FORMAT,
     DEFAULT_TIME_FORMAT,
+    EVENT_NAMES,
     FILE_PLACEHOLDERS,
     LINE_PLACEHOLDERS,
+    MODES,
     template_error,
 )
 
 DEFAULT_MINUTES = 25
 # Every setting, commented; ships inside the package.
 TEMPLATE = files("tokolog_flet") / "config.example.toml"
+# What a profile's [lines] table can be keyed by.
+LINE_KEYS = {*EVENT_NAMES, *MODES, *(f"{mode}.{event}" for mode in MODES for event in EVENT_NAMES)}
 
 
 class ConfigError(Exception):
@@ -50,9 +54,8 @@ class Profile:
     log_date_format: str = DEFAULT_DATE_FORMAT
     log_time_format: str = DEFAULT_TIME_FORMAT
     log_line_format: str = DEFAULT_LINE_FORMAT
-    # Per-mode lines; blank uses log_line_format.
-    log_line_format_countdown: str = ""
-    log_line_format_stopwatch: str = ""
+    # Lines for particular events or modes, as EventLog.lines; the rest use log_line_format.
+    log_lines: dict[str, str] = field(default_factory=dict, hash=False)
 
     @property
     def default_seconds(self) -> float:
@@ -172,12 +175,7 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
     if not isinstance(line_format, str):
         raise ConfigError(f"{path}: {prefix}line_format must be a string")
     _check_template(line_format, f"{prefix}line_format", LINE_PLACEHOLDERS, path)
-    countdown_format = _mode_line_format(
-        table, "countdown", base.log_line_format_countdown, prefix, path
-    )
-    stopwatch_format = _mode_line_format(
-        table, "stopwatch", base.log_line_format_stopwatch, prefix, path
-    )
+    lines = _parse_lines(table, base, prefix, path)
 
     return Profile(
         default_minutes=minutes,
@@ -187,25 +185,37 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
         log_date_format=date_format,
         log_time_format=time_format,
         log_line_format=line_format,
-        log_line_format_countdown=countdown_format,
-        log_line_format_stopwatch=stopwatch_format,
+        log_lines=lines,
     )
 
 
-def _mode_line_format(
-    table: dict[str, Any], mode: str, inherited: str, prefix: str, path: Path
-) -> str:
-    """The profile's line for ``mode``; blank means its line_format."""
-    key = f"line_format_{mode}"
-    if key not in table:
-        # A profile that sets its own line_format means it for every mode, rather than
-        # keeping a per-mode line it inherited from the default profile.
-        return "" if "line_format" in table else inherited
-    value = table[key]
-    if not isinstance(value, str):
-        raise ConfigError(f"{path}: {prefix}{key} must be a string")
-    _check_template(value, f"{prefix}{key}", LINE_PLACEHOLDERS, path)
-    return value
+def _parse_lines(table: dict[str, Any], base: Profile, prefix: str, path: Path) -> dict[str, str]:
+    """The profile's ``lines`` table, keyed ``stop``, ``countdown`` or ``countdown.stop``."""
+    if "lines" not in table:
+        # A profile that sets its own line_format means it for every event, rather than
+        # keeping lines it inherited from the default profile.
+        return {} if "line_format" in table else base.log_lines
+    raw = table["lines"]
+    if not isinstance(raw, dict):
+        raise ConfigError(f"{path}: [{prefix}lines] must be a table")
+    lines: dict[str, str] = {}
+    for key, value in raw.items():
+        # Unquoted, countdown.stop = "..." is a table in TOML: countdown = {stop = "..."}.
+        if key in MODES and isinstance(value, dict):
+            items = [(f"{key}.{event}", line) for event, line in value.items()]
+        else:
+            items = [(key, value)]
+        for name, line in items:
+            if name not in LINE_KEYS:
+                raise ConfigError(
+                    f"{path}: {prefix}lines.{name}: not an event ({', '.join(EVENT_NAMES)}), "
+                    f"a mode ({', '.join(MODES)}) or mode.event"
+                )
+            if not isinstance(line, str):
+                raise ConfigError(f"{path}: {prefix}lines.{name} must be a string")
+            _check_template(line, f"{prefix}lines.{name}", LINE_PLACEHOLDERS, path)
+            lines[name] = line
+    return lines
 
 
 def _check_template(template: str, key: str, placeholders: tuple[str, ...], path: Path) -> None:
