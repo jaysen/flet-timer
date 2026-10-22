@@ -37,7 +37,7 @@ uv run tokolog-flet                        # plain run via entry point
 Or press F5 in VS Code ("Flet: run app").
 
 To set the countdown, click its time and type e.g. `25` (minutes), `1:30`, `1:00:00` or
-`1h30m`, then press Enter (Esc cancels). It starts at `[timer] default_minutes` from the config.
+`1h30m`, then press Enter (Esc cancels). It starts at the profile's `default_minutes` from the config.
 
 The shrink icon next to the gear switches to a compact view that shows just the
 label, time and Start/Reset, e.g. to keep a running timer in a corner. The same button
@@ -65,7 +65,7 @@ TOKOLOG_FLET_CONFIG=config.toml uv run tokolog-flet
 ## Log
 
 Every start, pause, resume, stop and finish is appended to a file per day in the log folder
-(`~/.local/share/tokolog-flet/log/` unless `[log] folder` is set in the config):
+(`~/.local/share/tokolog-flet/log/` unless the profile sets `folder` in the config):
 
 ```text
 09:30:05  countdown  start   00:00
@@ -78,7 +78,7 @@ The last column is how much time had run when the event happened.
 The file name defaults to `2026-10-21.log`. To change it, e.g. to `flet-20261021.md`:
 
 ```toml
-[log]
+[profiles.default]
 file = "flet-{date}.md"
 date_format = "YYYYMMDD"   # YYYY, YY, MM and DD are replaced
 time_format = "HH:mm"      # HH, hh (12-hour), mm, ss and AM (AM/PM) are replaced
@@ -94,8 +94,9 @@ the app, or the mode if none) and `{profile}`. `file` can use `{date}`, `{label}
 
 A profile is a named set of log settings, e.g. one for your journal and one for a work
 timesheet. The label stays separate, so any label can be logged under any profile.
-`[timer]` and `[log]` make up the `default` profile. Each `[profiles.<name>]` table
-overrides any of their keys and takes the rest from them:
+Every profile is a `[profiles.<name>]` table with the same keys. `[profiles.default]`
+is the base: the app uses it until you pick another, and the others take whatever they
+leave out from it:
 
 ```toml
 [profiles.work]
@@ -105,7 +106,7 @@ file = "timesheet-{date}.csv"
 line_format = "{date},{time},{label},{event},{elapsed}"
 ```
 
-Once the config has a profile, a picker appears at the bottom of the window. It is
+Once the config has a profile besides `default`, a picker appears at the bottom of the window. It is
 locked while a timer runs or is paused, so a session stays in one log. Switching changes
 where the next events go, and an untouched countdown takes the profile's default minutes.
 The app reopens on the profile picked last, which it remembers in

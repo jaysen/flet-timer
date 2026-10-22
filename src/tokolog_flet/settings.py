@@ -27,7 +27,7 @@ WINDOW_SIZE = (440, 620)
 DIALOG_WIDTH = 360
 SECTIONS = {"timer": ("Timer", ft.Icons.TIMER_OUTLINED), "log": ("Log", ft.Icons.NOTES)}
 # Templates are easier to read, and their spacing easier to see, in a fixed-width font.
-MONOSPACE = {"log.file", "log.date_format", "log.time_format", "log.line_format"}
+MONOSPACE = {"file", "date_format", "time_format", "line_format"}
 NUMBER = ft.InputFilter(regex_string=r"^\d*\.?\d*$")
 
 
@@ -88,17 +88,17 @@ def open_settings(
     def load_fields() -> None:
         named = selected != DEFAULT_PROFILE
         for setting in SETTINGS:
-            field = fields[setting.key]
+            field = fields[setting.name]
             hint = inherited(setting)
             field.value = setting_text(data, setting, selected)
             field.hint_text = hint
             # The label covers the hint until the field is focused, so the tooltip says it too.
             field.tooltip = f"{'From default' if named else 'Default'}: {hint}\n{setting.help}"
             field.error = None
-            clear_buttons[setting.key].tooltip = (
+            clear_buttons[setting.name].tooltip = (
                 "Use the default profile's value" if named else "Use the default"
             )
-            sync_clear_button(setting.key)
+            sync_clear_button(setting.name)
 
     def store_fields() -> bool:
         """Keep what the fields say in ``data``; False, with the error shown, if unusable."""
@@ -114,7 +114,7 @@ def open_settings(
         return {key: field.value or "" for key, field in fields.items()}
 
     def make_field(setting: Setting) -> ft.TextField:
-        key = setting.key
+        key = setting.name
         clear_buttons[key] = ft.IconButton(
             ft.Icons.CLOSE,
             icon_size=14,
@@ -135,7 +135,7 @@ def open_settings(
         )
         if key in MONOSPACE:
             field.text_style = ft.TextStyle(font_family="monospace")
-        if key == "timer.default_minutes":
+        if key == "default_minutes":
             field.input_filter = NUMBER
             field.keyboard_type = ft.KeyboardType.NUMBER
         fields[key] = field
@@ -150,7 +150,7 @@ def open_settings(
             ],
             spacing=6,
         )
-        return [heading, *(make_field(s) for s in SETTINGS if s.section == name)]
+        return [heading, *(make_field(s) for s in SETTINGS if s.group == name)]
 
     profile_picker = ft.Dropdown(
         label="Profile",
@@ -268,7 +268,7 @@ def open_settings(
         setting = next((s for s in SETTINGS if _is_about(message, setting_key(s, selected))), None)
         if setting:
             detail = message.removeprefix(setting_key(setting, selected)).lstrip(": ")
-            fields[setting.key].error = detail[:1].upper() + detail[1:]
+            fields[setting.name].error = detail[:1].upper() + detail[1:]
             show_banner("")
         else:
             show_banner(message)

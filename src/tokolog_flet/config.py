@@ -56,7 +56,7 @@ DEFAULT_PROFILE = "default"
 
 @dataclass(frozen=True)
 class Config(Profile):
-    """The default profile (``[timer]`` and ``[log]``) plus the named ones."""
+    """The default profile (``[profiles.default]``) plus the named ones."""
 
     profiles: dict[str, Profile] = field(default_factory=dict, hash=False)
 
@@ -90,64 +90,63 @@ def load_config(path: Path | None = None) -> Config:
 
 def parse_config(data: dict[str, Any], path: Path) -> Config:
     """Validate raw settings; ``path`` is only used for messages and relative folders."""
-    timer = _section(data, "timer", path)
-    log = _section(data, "log", path)
-    default = _parse_profile(timer, log, Profile(), "timer.", "log.", path)
-
-    profiles: dict[str, Profile] = {}
-    for name, table in _section(data, "profiles", path).items():
-        if name.strip().lower() == DEFAULT_PROFILE:
-            raise ConfigError(f"{path}: profiles.{name}: that name is the built-in profile")
+    for old in ("timer", "log"):
+        if old in data:
+            raise ConfigError(f"{path}: [{old}] is gone; put its keys in [profiles.default]")
+    tables = _section(data, "profiles", path)
+    for name, table in tables.items():
+        # "Default" would read as the built-in profile while being a separate one.
+        if name != DEFAULT_PROFILE and name.strip().lower() == DEFAULT_PROFILE:
+            raise ConfigError(f"{path}: profiles.{name}: the default profile is [profiles.default]")
         if not isinstance(table, dict):
             raise ConfigError(f"{path}: [profiles.{name}] must be a table")
-        # A profile's keys sit together in one table and override the default's.
-        prefix = f"profiles.{name}."
-        profiles[name] = _parse_profile(table, table, default, prefix, prefix, path)
+
+    default = _parse_profile(tables.get(DEFAULT_PROFILE, {}), Profile(), DEFAULT_PROFILE, path)
+    # The others override the default profile, not the built-in values.
+    profiles = {
+        name: _parse_profile(table, default, name, path)
+        for name, table in tables.items()
+        if name != DEFAULT_PROFILE
+    }
     return Config(**vars(default), profiles=profiles)
 
 
-def _parse_profile(
-    timer: dict[str, Any],
-    log: dict[str, Any],
-    base: Profile,
-    timer_key: str,
-    log_key: str,
-    path: Path,
-) -> Profile:
-    """``base`` with whatever ``timer`` and ``log`` set; keys in messages get the prefixes."""
-    minutes = timer.get("default_minutes", base.default_minutes)
+def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) -> Profile:
+    """``base`` with whatever ``table``, the profile called ``name``, sets."""
+    prefix = f"profiles.{name}."
+    minutes = table.get("default_minutes", base.default_minutes)
     # bool is an int subclass, so `true` would otherwise pass as 1 minute.
     if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes <= 0:
-        raise ConfigError(f"{path}: {timer_key}default_minutes must be a positive number")
+        raise ConfigError(f"{path}: {prefix}default_minutes must be a positive number")
 
-    folder = log.get("folder")
+    folder = table.get("folder")
     if folder is None:
         log_folder = base.log_folder
     elif isinstance(folder, str) and folder:
         # Relative paths are taken from the config file's folder, not wherever the app runs.
         log_folder = path.parent / Path(folder).expanduser()
     else:
-        raise ConfigError(f"{path}: {log_key}folder must be a non-empty string")
+        raise ConfigError(f"{path}: {prefix}folder must be a non-empty string")
 
-    file = log.get("file", base.log_file)
+    file = table.get("file", base.log_file)
     if not _is_filename(file):
-        raise ConfigError(f"{path}: {log_key}file must be a non-empty file name, without folders")
-    _check_template(file, f"{log_key}file", FILE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {prefix}file must be a non-empty file name, without folders")
+    _check_template(file, f"{prefix}file", FILE_PLACEHOLDERS, path)
     # The date ends up in the file name, so it follows the same rules.
-    date_format = log.get("date_format", base.log_date_format)
+    date_format = table.get("date_format", base.log_date_format)
     if not _is_filename(date_format):
         raise ConfigError(
-            f"{path}: {log_key}date_format must be a non-empty string, without / or \\"
+            f"{path}: {prefix}date_format must be a non-empty string, without / or \\"
         )
 
-    time_format = log.get("time_format", base.log_time_format)
+    time_format = table.get("time_format", base.log_time_format)
     if not isinstance(time_format, str) or not time_format:
-        raise ConfigError(f"{path}: {log_key}time_format must be a non-empty string")
+        raise ConfigError(f"{path}: {prefix}time_format must be a non-empty string")
 
-    line_format = log.get("line_format", base.log_line_format)
+    line_format = table.get("line_format", base.log_line_format)
     if not isinstance(line_format, str):
-        raise ConfigError(f"{path}: {log_key}line_format must be a string")
-    _check_template(line_format, f"{log_key}line_format", LINE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {prefix}line_format must be a string")
+    _check_template(line_format, f"{prefix}line_format", LINE_PLACEHOLDERS, path)
 
     return Profile(
         default_minutes=minutes,
@@ -178,15 +177,12 @@ def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class Setting:
-    section: str
+    # Only for grouping in the settings popup; every setting sits in its profile's table.
+    group: str
     name: str
     label: str
     default: str
     help: str
-
-    @property
-    def key(self) -> str:
-        return f"{self.section}.{self.name}"
 
 
 def _setting_defaults() -> list[Setting]:
@@ -249,22 +245,19 @@ SETTINGS = _setting_defaults()
 
 def setting_key(setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
     """Where ``setting`` lives for ``profile``, as config messages name it."""
-    return setting.key if profile == DEFAULT_PROFILE else f"profiles.{profile}.{setting.name}"
+    return f"profiles.{profile}.{setting.name}"
 
 
 def profile_names(data: dict[str, Any]) -> list[str]:
-    """The named profiles in raw settings, in file order."""
+    """The named profiles in raw settings, in file order, without the default one."""
     profiles = data.get("profiles")
-    return list(profiles) if isinstance(profiles, dict) else []
+    return [n for n in profiles if n != DEFAULT_PROFILE] if isinstance(profiles, dict) else []
 
 
 def setting_text(data: dict[str, Any], setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
     """What the file sets for ``setting`` as editable text; empty if it is not set."""
-    if profile == DEFAULT_PROFILE:
-        table = data.get(setting.section)
-    else:
-        profiles = data.get("profiles")
-        table = profiles.get(profile) if isinstance(profiles, dict) else None
+    profiles = data.get("profiles")
+    table = profiles.get(profile) if isinstance(profiles, dict) else None
     value = table.get(setting.name) if isinstance(table, dict) else None
     return "" if value is None else str(value)
 
@@ -272,37 +265,32 @@ def setting_text(data: dict[str, Any], setting: Setting, profile: str = DEFAULT_
 def apply_settings(
     data: dict[str, Any], values: dict[str, str], profile: str = DEFAULT_PROFILE
 ) -> dict[str, Any]:
-    """Copy of ``data`` with each setting in ``values`` (by key) set, or removed if blank.
+    """Copy of ``data`` with each setting in ``values`` (by name) set, or removed if blank.
 
-    The settings go in ``[timer]`` and ``[log]`` for the default profile, otherwise in the
-    profile's own table, which is kept even when empty: an empty profile is still one.
+    A named profile's table is kept even when empty: an empty profile is still one.
     Text is kept as typed: spaces can matter, e.g. at the start of a line format.
     Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
     """
-    result = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
-    if profile != DEFAULT_PROFILE:
-        profiles = result.setdefault("profiles", {})
-        if not isinstance(profiles, dict):
-            raise ConfigError("[profiles] must be a table")
-        table = profiles.get(profile, {})
-        if not isinstance(table, dict):
-            raise ConfigError(f"[profiles.{profile}] must be a table")
-        profiles[profile] = dict(table)
+    profiles = data.get("profiles", {})
+    if not isinstance(profiles, dict):
+        raise ConfigError("[profiles] must be a table")
+    table = profiles.get(profile, {})
+    if not isinstance(table, dict):
+        raise ConfigError(f"[profiles.{profile}] must be a table")
+    table = dict(table)
     for setting in SETTINGS:
-        if profile == DEFAULT_PROFILE:
-            table = result.setdefault(setting.section, {})
-            if not isinstance(table, dict):
-                raise ConfigError(f"[{setting.section}] must be a table")
-        else:
-            table = result["profiles"][profile]
-        text = values.get(setting.key, "")
+        text = values.get(setting.name, "")
         if not text.strip():
             table.pop(setting.name, None)
-        elif setting.key == "timer.default_minutes":
+        elif setting.name == "default_minutes":
             table[setting.name] = _number(text.strip(), setting_key(setting, profile))
         else:
             table[setting.name] = text
-    return {k: v for k, v in result.items() if v != {}}
+    profiles = {**profiles, profile: table}
+    if profile == DEFAULT_PROFILE and not table:
+        del profiles[profile]
+    result = {k: v for k, v in data.items() if k != "profiles"}
+    return {**result, "profiles": profiles} if profiles else result
 
 
 def add_profile(data: dict[str, Any], name: str) -> dict[str, Any]:

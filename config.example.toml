@@ -1,17 +1,21 @@
 # tokolog-flet settings. Copy to ~/.config/tokolog-flet/config.toml and edit.
 # Every setting is optional; the values shown are the defaults.
 
-[timer]
+# Every profile is a [profiles.<name>] table with the same keys. [profiles.default]
+# is the base: the app uses it until another profile is picked, and the others take
+# whatever they leave out from it.
+
+[profiles.default]
 # Countdown start time in minutes (fractions allowed, e.g. 1.5).
 default_minutes = 25
 
-[log]
 # Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/tokolog-flet/log
 # folder = "~/.local/share/tokolog-flet/log"
 
 # File name, including extension. {date} is replaced using date_format, {label}
-# with the label typed in the app and {profile} with the profile's name. A name without {date} puts every day in one file.
+# with the label typed in the app and {profile} with the profile's name.
+# A name without {date} puts every day in one file.
 # file = "{date}.log"
 # YYYY, YY, MM and DD are replaced, e.g. "YYYYMMDD" -> 20261021.
 # date_format = "YYYY-MM-DD"
@@ -27,9 +31,8 @@ default_minutes = 25
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
 
-# Named profiles, picked at the bottom of the window. A profile sets any of the keys
-# above (from [timer] and [log]) in one table; what it leaves out comes from those
-# sections. "default" is the built-in profile, made of [timer] and [log] themselves.
+# More profiles, picked at the bottom of the window. Set only what differs from
+# [profiles.default].
 # [profiles.work]
 # default_minutes = 50
 # folder = "~/work/timesheets"
