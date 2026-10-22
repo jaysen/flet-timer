@@ -24,7 +24,8 @@ DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
 TIME_TOKENS = re.compile("HH|hh|mm|ss|AM")
 FILE_PLACEHOLDERS = ("date", "label", "profile")
 # display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
-# The timer_ ones are blank for a stopwatch.
+# The timer_ ones are blank for a stopwatch. started is the clock time of the start;
+# since_start is the time since then, pauses included, and paused the part spent paused.
 LINE_PLACEHOLDERS = (
     "date",
     "time",
@@ -36,6 +37,9 @@ LINE_PLACEHOLDERS = (
     "profile",
     "timer_minutes",
     "timer_remaining",
+    "started",
+    "since_start",
+    "paused",
 )
 
 EVENTS: dict[tuple[State, State], str] = {
@@ -112,6 +116,8 @@ class EventLog:
         self.now = now
         self.profile = profile
         self._seen: dict[str, tuple[State, float, str]] = {}
+        # When each mode's running session started, by the wall clock.
+        self._started: dict[str, datetime] = {}
 
     def update(self, mode: str, timer: Stopwatch, label: str = "") -> None:
         seen = timer.state, timer.elapsed, timer.display()
@@ -127,6 +133,15 @@ class EventLog:
     ) -> None:
         stamp = self.now()
         countdown = isinstance(timer, Countdown)
+        if event == "start":
+            self._started[mode] = stamp
+        # The session ends here, but this line still reports on it.
+        started = (
+            self._started.pop(mode, None)
+            if event in ("stop", "finish")
+            else self._started.get(mode)
+        )
+        since = (stamp - started).total_seconds() if started else None
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
         line = self.line_format.format(
@@ -141,6 +156,10 @@ class EventLog:
             # Minutes as a plain number, like default_minutes: 25, or 1.5 for 1:30.
             timer_minutes=f"{timer.duration / 60:g}" if countdown else "",
             timer_remaining=display if countdown else "",
+            started=format_time(self.time_format, started) if started else "",
+            since_start=format_seconds(since) if since is not None else "",
+            # Wall clock and timer clock can differ by a hair; never show a negative pause.
+            paused=format_seconds(max(0.0, since - elapsed)) if since is not None else "",
         )
         line += "\n"
         # The file may be a note edited by hand; don't glue the line onto its last one.

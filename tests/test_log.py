@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -264,4 +264,36 @@ def test_timer_placeholders(tmp_path: Path, clock: FakeClock) -> None:
         "countdown start [1.5] [01:30]",
         "countdown stop [1.5] [01:00]",  # time left when stopped, not after the reset
         "stopwatch start [] []",
+    ]
+
+
+def test_session_placeholders(tmp_path: Path, clock: FakeClock) -> None:
+    # The wall clock moves with the timer clock, from 09:30:00.
+    log = EventLog(
+        tmp_path,
+        time_format="HH:mm",
+        line_format="{event} {started} {since_start} {elapsed} {paused}",
+        now=lambda: datetime(2026, 10, 21, 9, 30) + timedelta(seconds=clock.now),
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 600
+    s.pause()
+    log.update("stopwatch", s)
+    clock.now = 900
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 1500
+    log.update("stopwatch", s)
+    s.reset()
+    log.update("stopwatch", s)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == [
+        "start 09:30 00:00 00:00 00:00",
+        "pause 09:30 10:00 10:00 00:00",
+        "resume 09:30 15:00 10:00 05:00",
+        "stop 09:30 25:00 20:00 05:00",
+        "start 09:55 00:00 00:00 00:00",  # a new session after the stop
     ]
