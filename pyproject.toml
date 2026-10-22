@@ -26,6 +26,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/flet_timer"]
 
+[tool.flet]
+# Names the Linux icons to match the desktop entry; unset, they come out as None.png.
+bundle_id = "com.flet.flet-timer"
+
 [tool.flet.app]
 path = "src"
 

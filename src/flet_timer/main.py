@@ -2,6 +2,7 @@
 
 import asyncio
 from functools import partial
+from pathlib import Path
 
 import flet as ft
 
@@ -11,6 +12,8 @@ from flet_timer.settings import WINDOW_SIZE, open_settings
 from flet_timer.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
+# Also picked up by `flet build` as the app icon.
+ICON = Path(__file__).parent.parent / "assets" / "icon.png"
 
 COUNTDOWN = "countdown"
 SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
@@ -27,6 +30,7 @@ COMPACT_BUTTON_WIDTH = 76
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
     page.window.width, page.window.height = FULL_SIZE
+    page.window.icon = str(ICON)
     page.window.title_bar_hidden = True
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
