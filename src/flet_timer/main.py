@@ -219,12 +219,15 @@ def main(page: ft.Page, config: Config) -> None:
                 [
                     ft.Row(
                         [
-                            # Balances the window buttons so the mode toggle sits centred.
-                            ft.Container(width=78),
+                            # As wide as the window buttons so the mode toggle sits centred.
+                            ft.Container(
+                                window_button(ft.Icons.SETTINGS, "Settings", on_settings),
+                                width=52,
+                                alignment=ft.Alignment.CENTER_LEFT,
+                            ),
                             mode,
                             ft.Row(
                                 [
-                                    window_button(ft.Icons.SETTINGS, "Settings", on_settings),
                                     window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
                                     window_button(ft.Icons.CLOSE, "Close", on_close),
                                 ],
