@@ -65,7 +65,7 @@ def main(page: ft.Page, config: Config) -> None:
     )
     # A borderless caption above the time, so it reads as a title rather than a form field.
     label = ft.TextField(
-        hint_text="Add a label",
+        hint_text=current,
         width=260,
         dense=True,
         text_size=16,
@@ -91,7 +91,8 @@ def main(page: ft.Page, config: Config) -> None:
     reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
 
     def log_state() -> None:
-        events.update(current, timer, (label.value or "").strip())
+        # Without a label of its own, a timer is labelled by its mode, as the hint shows.
+        events.update(current, timer, (label.value or "").strip() or current)
 
     def can_set_time() -> bool:
         # Only before starting or once finished, so a paused countdown isn't lost by accident.
@@ -100,6 +101,7 @@ def main(page: ft.Page, config: Config) -> None:
     def render() -> None:
         log_state()
         display.value = timer.display()
+        label.hint_text = current
         editable = can_set_time()
         time_display.mouse_cursor = ft.MouseCursor.CLICK if editable else None
         time_display.tooltip = SET_TIME_TOOLTIP if editable else None
