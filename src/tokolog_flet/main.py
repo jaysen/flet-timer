@@ -6,9 +6,10 @@ from pathlib import Path
 
 import flet as ft
 
-from tokolog_flet.config import Config, config_path, load_config
+from tokolog_flet.config import DEFAULT_PROFILE, Config, Profile, config_path, load_config
 from tokolog_flet.log import EventLog
 from tokolog_flet.settings import WINDOW_SIZE, open_settings
+from tokolog_flet.state import load_last_profile, save_last_profile
 from tokolog_flet.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
@@ -35,18 +36,23 @@ def main(page: ft.Page, config: Config) -> None:
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
 
+    profile_name = load_last_profile()
+    if profile_name not in config.profiles:
+        profile_name = DEFAULT_PROFILE
+    profile = config.profile(profile_name)
     timers: dict[str, Stopwatch] = {
-        COUNTDOWN: Countdown(config.default_seconds),
+        COUNTDOWN: Countdown(profile.default_seconds),
         STOPWATCH: Stopwatch(),
     }
     current = STOPWATCH
     timer = timers[current]
     events = EventLog(
-        config.log_folder,
-        config.log_file,
-        config.log_date_format,
-        config.log_time_format,
-        config.log_line_format,
+        profile.log_folder,
+        profile.log_file,
+        profile.log_date_format,
+        profile.log_time_format,
+        profile.log_line_format,
+        profile=profile_name,
     )
 
     mode = ft.SegmentedButton(
@@ -89,6 +95,23 @@ def main(page: ft.Page, config: Config) -> None:
     time_display = ft.GestureDetector(display)
     start_pause = ft.FilledButton("Start", width=FULL_BUTTON_WIDTH)
     reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
+    profile_picker = ft.Dropdown(
+        width=160,
+        dense=True,
+        text_size=11,
+        content_padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+        border=ft.NoInputBorder(),
+        tooltip="Profile: where and how to log",
+        leading_icon=ft.Icon(ft.Icons.TUNE, size=14),
+    )
+
+    def sync_profile_picker() -> None:
+        profile_picker.options = [
+            ft.DropdownOption(key=name, text=name) for name in [DEFAULT_PROFILE, *config.profiles]
+        ]
+        profile_picker.value = profile_name
+        # Nothing to pick between until the config file names a profile.
+        profile_picker.visible = bool(config.profiles) and not compact
 
     def log_state() -> None:
         # Without a label of its own, a timer is labelled by its mode, as the hint shows.
@@ -107,6 +130,8 @@ def main(page: ft.Page, config: Config) -> None:
         time_display.tooltip = SET_TIME_TOOLTIP if editable else None
         start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
         start_pause.disabled = timer.state is State.FINISHED
+        # A session stays in one log; only an idle or finished timer can change profile.
+        profile_picker.disabled = timer.state in (State.RUNNING, State.PAUSED)
         page.update()
 
     async def tick() -> None:
@@ -181,23 +206,40 @@ def main(page: ft.Page, config: Config) -> None:
         open_settings(page, config_path(), apply_config, restore_window)
         page.update()
 
-    def apply_config(new: Config) -> None:
-        nonlocal config
+    def use_profile(old: Profile, new: Profile) -> None:
         countdown = timers[COUNTDOWN]
         # Only an untouched countdown follows the new default; a set or running one keeps its time.
         if (
             isinstance(countdown, Countdown)
             and countdown.state is State.IDLE
-            and countdown.duration == config.default_seconds
+            and countdown.duration == old.default_seconds
         ):
             countdown.duration = new.default_seconds
-        config = new
         # Same log object, so a running timer isn't taken for a fresh start.
         events.folder = new.log_folder
         events.file = new.log_file
         events.date_format = new.log_date_format
         events.time_format = new.log_time_format
         events.line_format = new.log_line_format
+        events.profile = profile_name
+
+    def apply_config(new: Config) -> None:
+        nonlocal config, profile_name
+        old = config.profile(profile_name)
+        config = new
+        # The picked profile may have been removed or renamed.
+        if profile_name not in new.profiles:
+            profile_name = DEFAULT_PROFILE
+        use_profile(old, new.profile(profile_name))
+        sync_profile_picker()
+        render()
+
+    def on_profile_select(_: ft.Event[ft.Dropdown]) -> None:
+        nonlocal profile_name
+        old = config.profile(profile_name)
+        profile_name = profile_picker.value or DEFAULT_PROFILE
+        use_profile(old, config.profile(profile_name))
+        save_last_profile(profile_name)
         render()
 
     def on_minimize(_: ft.Event[ft.IconButton]) -> None:
@@ -217,7 +259,8 @@ def main(page: ft.Page, config: Config) -> None:
         else:
             page.window.width, page.window.height = full_size
         # Only the label, time and buttons stay, plus this button and the window buttons.
-        settings_button.visible = mode.visible = bottom_spacer.visible = not compact
+        settings_button.visible = mode.visible = bottom_bar.visible = not compact
+        sync_profile_picker()
         size = COMPACT_TIME_SIZE if compact else FULL_TIME_SIZE
         display.size = time_field.text_size = size
         label.width = 200 if compact else 260
@@ -277,9 +320,11 @@ def main(page: ft.Page, config: Config) -> None:
     )
     buttons = ft.Row([start_pause, reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
     # Mirrors the top bar's height so the content sits in the true centre.
-    bottom_spacer = ft.Container(height=24)
+    bottom_bar = ft.Container(profile_picker, height=24, alignment=ft.Alignment.CENTER)
 
+    sync_profile_picker()
     mode.on_change = on_mode_change
+    profile_picker.on_select = on_profile_select
     time_display.on_tap = on_time_click
     time_field.on_submit = on_time_submit
     # Clicking away, e.g. on Start, keeps what was typed.
@@ -310,7 +355,7 @@ def main(page: ft.Page, config: Config) -> None:
                             spacing=0,
                             expand=True,
                         ),
-                        bottom_spacer,
+                        bottom_bar,
                     ],
                     expand=True,
                 ),
