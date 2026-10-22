@@ -1,6 +1,6 @@
 import pytest
 
-from flet_timer.timer import Countdown, State, Stopwatch, format_seconds
+from flet_timer.timer import Countdown, State, Stopwatch, format_seconds, parse_duration
 
 
 class FakeClock:
@@ -133,3 +133,43 @@ def test_stopwatch_display_rounds_down(clock: FakeClock) -> None:
 )
 def test_format_seconds(seconds: float, round_up: bool, expected: str) -> None:
     assert format_seconds(seconds, round_up=round_up) == expected
+
+
+def test_duration_can_be_changed(clock: FakeClock) -> None:
+    c = Countdown(10, clock)
+    c.duration = 90
+    assert c.remaining == 90
+    assert c.display() == "01:30"
+
+
+def test_rejects_non_positive_new_duration() -> None:
+    c = Countdown(10)
+    with pytest.raises(ValueError):
+        c.duration = 0
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("25", 1500),
+        (" 2.5 ", 150),
+        ("1:30", 90),
+        ("90:00", 5400),
+        ("1:00:00", 3600),
+        ("0:05", 5),
+        ("1h30m", 5400),
+        ("1h 30m 15s", 5415),
+        ("45M", 2700),
+        ("90s", 90),
+        ("1.5h", 5400),
+    ],
+)
+def test_parse_duration(text: str, expected: float) -> None:
+    assert parse_duration(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text", ["", "0", "0:00", "abc", "1:90", "1:60:00", "1:2:3:4", "-5", "1m1m", "5x", ":30"]
+)
+def test_parse_duration_rejects(text: str) -> None:
+    assert parse_duration(text) is None

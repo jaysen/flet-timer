@@ -7,11 +7,12 @@ import flet as ft
 
 from flet_timer.config import Config, load_config
 from flet_timer.log import EventLog
-from flet_timer.timer import Countdown, State, Stopwatch
+from flet_timer.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
 
 COUNTDOWN = "countdown"
+SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
 STOPWATCH = "stopwatch"
 
 
@@ -63,14 +64,33 @@ def main(page: ft.Page, config: Config) -> None:
         hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
     )
     display = ft.Text(timer.display(), size=72, weight=ft.FontWeight.W_300)
+    # Clicking the countdown's time swaps it for this field, styled to look the same.
+    time_field = ft.TextField(
+        width=300,
+        dense=True,
+        text_size=72,
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_300),
+        text_align=ft.TextAlign.CENTER,
+        border=ft.NoInputBorder(),
+        content_padding=0,
+        visible=False,
+    )
+    time_display = ft.GestureDetector(display)
     start_pause = ft.FilledButton("Start", width=104)
 
     def log_state() -> None:
         events.update(current, timer, (label.value or "").strip())
 
+    def can_set_time() -> bool:
+        # Only before starting or once finished, so a paused countdown isn't lost by accident.
+        return isinstance(timer, Countdown) and timer.state in (State.IDLE, State.FINISHED)
+
     def render() -> None:
         log_state()
         display.value = timer.display()
+        editable = can_set_time()
+        time_display.mouse_cursor = ft.MouseCursor.CLICK if editable else None
+        time_display.tooltip = SET_TIME_TOOLTIP if editable else None
         start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
         start_pause.disabled = timer.state is State.FINISHED
         page.update()
@@ -82,8 +102,37 @@ def main(page: ft.Page, config: Config) -> None:
             await asyncio.sleep(TICK_SECONDS)
         render()
 
+    async def on_time_click(_: ft.TapEvent[ft.GestureDetector]) -> None:
+        if not can_set_time():
+            return
+        time_field.value = display.value
+        time_field.selection = ft.TextSelection(0, len(display.value or ""))
+        time_field.visible = True
+        time_display.visible = False
+        page.update()
+        await time_field.focus()
+
+    def finish_setting_time(apply: bool) -> None:
+        if not time_field.visible:
+            return
+        time_field.visible = False
+        time_display.visible = True
+        seconds = parse_duration(time_field.value or "") if apply else None
+        if seconds is not None and isinstance(timer, Countdown):
+            timer.duration = seconds
+            timer.reset()
+        render()
+
+    def on_time_submit(_: ft.Event[ft.TextField]) -> None:
+        finish_setting_time(apply=True)
+
+    def on_key(e: ft.KeyboardEvent) -> None:
+        if e.key == "Escape":
+            finish_setting_time(apply=False)
+
     def on_mode_change(_: ft.Event[ft.SegmentedButton]) -> None:
         nonlocal current, timer
+        finish_setting_time(apply=False)
         log_state()
         timer.reset()
         log_state()
@@ -125,6 +174,11 @@ def main(page: ft.Page, config: Config) -> None:
         )
 
     mode.on_change = on_mode_change
+    time_display.on_tap = on_time_click
+    time_field.on_submit = on_time_submit
+    # Clicking away, e.g. on Start, keeps what was typed.
+    time_field.on_blur = on_time_submit
+    page.on_keyboard_event = on_key
     start_pause.on_click = on_start_pause
     # No title bar, so the whole window is the drag handle.
     page.add(
@@ -150,7 +204,7 @@ def main(page: ft.Page, config: Config) -> None:
                     ft.Column(
                         [
                             ft.Column(
-                                [label, display],
+                                [label, time_display, time_field],
                                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                                 spacing=0,
                             ),
