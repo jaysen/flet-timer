@@ -27,6 +27,8 @@ from tokolog_flet.log import (
 )
 
 DEFAULT_MINUTES = 25
+# A profile's mode when it allows both; also how a profile undoes the default's mode.
+ANY_MODE = "any"
 # Every setting, commented; ships inside the package.
 TEMPLATE = files("tokolog_flet") / "config.example.toml"
 # What a profile's [lines] table can be keyed by.
@@ -49,6 +51,8 @@ class Profile:
     default_minutes: float = DEFAULT_MINUTES
     # Used when the label field is left empty; blank falls back to the mode.
     default_label: str = ""
+    # The only mode the profile allows, countdown or stopwatch; None allows either.
+    mode: str | None = None
     log_folder: Path = field(default_factory=default_log_folder)
     log_file: str = DEFAULT_FILE
     log_date_format: str = DEFAULT_DATE_FORMAT
@@ -147,6 +151,10 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
     if not isinstance(label, str):
         raise ConfigError(f"{path}: {prefix}default_label must be a string")
 
+    mode = table.get("mode", base.mode or ANY_MODE)
+    if mode not in (*MODES, ANY_MODE):
+        raise ConfigError(f"{path}: {prefix}mode must be {', '.join(MODES)} or {ANY_MODE}")
+
     folder = table.get("folder")
     if folder is None:
         log_folder = base.log_folder
@@ -180,6 +188,7 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
     return Profile(
         default_minutes=minutes,
         default_label=label.strip(),
+        mode=None if mode == ANY_MODE else mode,
         log_folder=log_folder,
         log_file=file,
         log_date_format=date_format,

@@ -303,3 +303,26 @@ def test_config_mtime(tmp_path: Path) -> None:
     assert config_mtime(path) is None
     path.write_text("")
     assert config_mtime(path) == path.stat().st_mtime_ns
+
+
+def test_mode(tmp_path: Path) -> None:
+    config = load_config(
+        write(
+            tmp_path,
+            '[profiles.default]\nmode = "stopwatch"\n'
+            "[profiles.inherits]\n"
+            '[profiles.pomodoro]\nmode = "countdown"\n'
+            '[profiles.free]\nmode = "any"\n',
+        )
+    )
+    assert Config().mode is None
+    assert config.mode == "stopwatch"
+    assert config.profile("inherits").mode == "stopwatch"
+    assert config.profile("pomodoro").mode == "countdown"
+    assert config.profile("free").mode is None
+
+
+@pytest.mark.parametrize("value", ['"timer"', '""', "5"])
+def test_rejects_invalid_mode(tmp_path: Path, value: str) -> None:
+    with pytest.raises(ConfigError, match=r"profiles\.default\.mode must be countdown, stopwatch"):
+        load_config(write(tmp_path, f"[profiles.default]\nmode = {value}\n"))
