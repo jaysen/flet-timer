@@ -203,7 +203,7 @@ def main(page: ft.Page, config: Config) -> None:
             page.window.width, page.window.height = size
             page.update()
 
-        open_settings(page, config_path(), apply_config, restore_window)
+        open_settings(page, config_path(), apply_config, restore_window, profile_name)
         page.update()
 
     def use_profile(old: Profile, new: Profile) -> None:
