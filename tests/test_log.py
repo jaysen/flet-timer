@@ -299,16 +299,42 @@ def test_session_placeholders(tmp_path: Path, clock: FakeClock) -> None:
     ]
 
 
-def test_mode_line_formats(tmp_path: Path, clock: FakeClock) -> None:
+def test_lines_most_specific_wins(tmp_path: Path, clock: FakeClock) -> None:
     log = EventLog(
         tmp_path,
         line_format="{mode} {event}",
         now=lambda: datetime(2026, 10, 21, 9, 30, 5),
-        mode_line_formats={"countdown": "{event} {timer_minutes} min", "stopwatch": ""},
+        lines={"countdown": "c {event}", "stop": "stopped", "countdown.stop": "c stopped"},
     )
     c, s = Countdown(1500, clock), Stopwatch(clock)
-    c.start()
-    log.update("countdown", c)
+    for mode, timer in (("countdown", c), ("stopwatch", s)):
+        timer.start()
+        log.update(mode, timer)
+        clock.now += 60
+        timer.reset()
+        log.update(mode, timer)
+    assert lines(tmp_path) == ["c start", "c stopped", "stopwatch start", "stopped"]
+
+
+def test_empty_line_skips_event(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format="{event} {since_start} {paused}",
+        now=lambda: datetime(2026, 10, 21, 9, 30) + timedelta(seconds=clock.now),
+        lines={"start": "", "pause": "", "resume": ""},
+    )
+    s = Stopwatch(clock)
     s.start()
     log.update("stopwatch", s)
-    assert lines(tmp_path) == ["start 25 min", "stopwatch start"]
+    clock.now = 60
+    s.pause()
+    log.update("stopwatch", s)
+    clock.now = 90
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 120
+    log.update("stopwatch", s)  # as the UI does just before acting
+    s.reset()
+    log.update("stopwatch", s)
+    # The skipped start still marks the session's beginning.
+    assert lines(tmp_path) == ["stop 02:00 00:30"]
