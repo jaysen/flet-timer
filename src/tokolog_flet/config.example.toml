@@ -55,9 +55,50 @@ default_minutes = 25
 # resume = ""
 
 # More profiles, picked at the bottom of the window. Set only what differs from
-# [profiles.default].
-# [profiles.work]
-# default_minutes = 50
-# folder = "~/work/timesheets"
-# file = "timesheet-{date}.csv"
-# line_format = "{date},{time},{label},{event},{elapsed}"
+# [profiles.default]. Some to start from; uncomment one whole block.
+
+# Journal: a readable Markdown line for every event, and a summary when it ends.
+# [profiles.journal]
+# file = "{date}.md"
+# time_format = "HH:mm"
+# [profiles.journal.lines]
+# start            = "- {time} ▶ **{label}**"
+# pause            = "- {time} ⏸ **{label}** after {elapsed}"
+# resume           = "- {time} ⏵ **{label}**, paused {paused} so far"
+# stop             = "- {started}–{time} ■ **{label}**: {elapsed} worked, {paused} paused"
+# countdown.start  = "- {time} ▶ **{label}** ({timer_minutes} min)"
+# countdown.stop   = "- {started}–{time} ■ **{label}**: stopped, {timer_remaining} of {timer_minutes} min left"
+# countdown.finish = "- {started}–{time} ✓ **{label}**: {timer_minutes} min done, {paused} paused"
+
+# Summary: one line per session, written when it ends. An empty line_format skips
+# every event that has no line of its own.
+# [profiles.summary]
+# file = "{date}.md"
+# time_format = "HH:mm"
+# line_format = ""
+# [profiles.summary.lines]
+# stop   = "- {started}–{time} {label} ({elapsed})"
+# finish = "- {started}–{time} {label} ({elapsed}) ✓"
+
+# Timesheet: one CSV row per session, all in one file, ready for a spreadsheet.
+# [profiles.timesheet]
+# folder = "~/work"
+# file = "timesheet.csv"
+# time_format = "HH:mm"
+# line_format = ""
+# [profiles.timesheet.lines]
+# stop   = "{date},{started},{time},{label},{elapsed},{paused}"
+# finish = "{date},{started},{time},{label},{elapsed},{paused}"
+
+# Pomodoro: 25-minute focus blocks; pauses aren't logged.
+# [profiles.pomodoro]
+# default_minutes = 25
+# default_label = "focus"
+# time_format = "HH:mm"
+# line_format = "- {time} {event} {label} {elapsed}"
+# [profiles.pomodoro.lines]
+# countdown.start  = "- {time} 🍅 {label}"
+# countdown.finish = "- {time} 🍅 ✓ {label} ({timer_minutes} min)"
+# countdown.stop   = "- {time} 🍅 ✗ {label}: gave up with {timer_remaining} left"
+# pause  = ""
+# resume = ""
