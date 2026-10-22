@@ -90,9 +90,6 @@ def load_config(path: Path | None = None) -> Config:
 
 def parse_config(data: dict[str, Any], path: Path) -> Config:
     """Validate raw settings; ``path`` is only used for messages and relative folders."""
-    for old in ("timer", "log"):
-        if old in data:
-            raise ConfigError(f"{path}: [{old}] is gone; put its keys in [profiles.default]")
     tables = _section(data, "profiles", path)
     for name, table in tables.items():
         # "Default" would read as the built-in profile while being a separate one.

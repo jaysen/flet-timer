@@ -55,11 +55,6 @@ def test_rejects_invalid_minutes(tmp_path: Path, value: str) -> None:
         load_config(write(tmp_path, f"[profiles.default]\ndefault_minutes = {value}\n"))
 
 
-def test_rejects_non_table_section(tmp_path: Path) -> None:
-    with pytest.raises(ConfigError, match=r"\[timer\]"):
-        load_config(write(tmp_path, "timer = 5\n"))
-
-
 def test_rejects_malformed_toml(tmp_path: Path) -> None:
     path = write(tmp_path, "[timer\n")
     with pytest.raises(ConfigError, match=str(path)):
@@ -227,12 +222,6 @@ def test_apply_settings_all_blank_is_empty() -> None:
 def test_parse_config_validates_in_memory(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"profiles\.default\.file"):
         parse_config({"profiles": {"default": {"file": "a/b"}}}, tmp_path / "config.toml")
-
-
-@pytest.mark.parametrize("section", ["timer", "log"])
-def test_rejects_old_sections(tmp_path: Path, section: str) -> None:
-    with pytest.raises(ConfigError, match=rf"\[{section}\].*\[profiles\.default\]"):
-        load_config(write(tmp_path, f"[{section}]\n"))
 
 
 def test_save_round_trips(tmp_path: Path) -> None:
