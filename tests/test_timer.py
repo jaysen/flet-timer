@@ -110,6 +110,37 @@ def test_stopwatch_pause_resume_and_reset(clock: FakeClock) -> None:
     assert s.elapsed == 0
 
 
+def test_stop_keeps_time_until_reset(clock: FakeClock) -> None:
+    s = Stopwatch(clock)
+    s.start()
+    clock.now = 3
+    s.stop()
+    clock.now = 50
+    assert s.state is State.STOPPED
+    assert s.elapsed == 3
+    s.start()  # a stopped run doesn't resume
+    assert s.state is State.STOPPED
+    s.reset()
+    assert s.state is State.IDLE
+    assert s.elapsed == 0
+
+
+def test_stop_from_pause(clock: FakeClock) -> None:
+    c = Countdown(10, clock)
+    c.start()
+    clock.now = 4
+    c.pause()
+    c.stop()
+    assert c.state is State.STOPPED
+    assert c.remaining == 6
+
+
+def test_stop_while_idle_does_nothing(clock: FakeClock) -> None:
+    s = Stopwatch(clock)
+    s.stop()
+    assert s.state is State.IDLE
+
+
 def test_stopwatch_display_rounds_down(clock: FakeClock) -> None:
     s = Stopwatch(clock)
     s.start()

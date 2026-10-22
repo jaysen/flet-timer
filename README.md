@@ -6,7 +6,8 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 
 - **Timer + stopwatch modes** with quick mode switching.
 - **Flexible countdown input** (`25`, `1:30`, `1:00:00`, `1h30m`) and inline editing.
-- **Start / pause / resume / reset flow** with elapsed/display time tracking.
+- **Start / pause / resume / stop / reset flow** with elapsed/display time tracking. Stop
+  ends the run but keeps its time on show; Reset then clears it.
 - **Compact view toggle** for a minimal always-visible timer window.
 - **Editable label** per session, used in log output.
 - **Named profiles**, each with its own log file, line formats, countdown default, label
@@ -42,7 +43,7 @@ To set the countdown, click its time and type e.g. `25` (minutes), `1:30`, `1:00
 `1h30m`, then press Enter (Esc cancels). It starts at the profile's `default_minutes` from the config.
 
 The shrink icon next to the gear switches to a compact view that shows just the
-label, time and Start/Reset, e.g. to keep a running timer in a corner. The same button
+label, time and Start/Stop buttons, e.g. to keep a running timer in a corner. The same button
 (now an expand icon) brings back the full view.
 
 ## Config
@@ -154,7 +155,7 @@ profile's default minutes.
 A profile with a `mode` switches to it and locks the Timer/Stopwatch switch, e.g.
 `mode = "countdown"` for a pomodoro profile. `mode = "any"` allows both again, for a
 profile whose default sets one. If a timer is running or paused when the mode changes,
-e.g. after editing the config, it switches once that timer is reset.
+e.g. after editing the config, it switches once that timer is stopped.
 
 The app reopens on the profile picked last, which it remembers in
 `~/.local/state/tokolog-flet/state.json`. [config.example.toml](src/tokolog_flet/config.example.toml)

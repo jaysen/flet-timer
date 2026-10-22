@@ -73,6 +73,22 @@ def test_logs_finish_once(tmp_path: Path, clock: FakeClock) -> None:
     ]
 
 
+def test_stop_logs_once_and_reset_after_logs_nothing(tmp_path: Path, clock: FakeClock) -> None:
+    log = make_log(tmp_path)
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 65
+    s.stop()
+    log.update("stopwatch", s)
+    s.reset()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == [
+        "09:30:05  stopwatch  start   00:00",
+        "09:30:05  stopwatch  stop    01:05",
+    ]
+
+
 def test_reset_while_idle_logs_nothing(tmp_path: Path, clock: FakeClock) -> None:
     log = make_log(tmp_path)
     s = Stopwatch(clock)
