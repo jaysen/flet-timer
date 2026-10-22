@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from tokolog_flet.config import Profile
 from tokolog_flet.log import (
     EventLog,
     format_date,
@@ -354,3 +355,24 @@ def test_empty_line_skips_event(tmp_path: Path, clock: FakeClock) -> None:
     log.update("stopwatch", s)
     # The skipped start still marks the session's beginning.
     assert lines(tmp_path) == ["stop 02:00 00:30"]
+
+
+def test_use_profile_takes_its_log_settings(tmp_path: Path) -> None:
+    events = make_log(tmp_path)
+    profile = Profile(
+        log_folder=tmp_path / "work",
+        log_file="{profile}.md",
+        log_date_format="DD/MM",
+        log_time_format="HH:mm",
+        log_line_format="{event}",
+        log_lines={"stop": ""},
+    )
+    events.use_profile(profile, "work")
+    assert (events.folder, events.file, events.profile) == (
+        tmp_path / "work",
+        "{profile}.md",
+        "work",
+    )
+    assert (events.date_format, events.time_format) == ("DD/MM", "HH:mm")
+    assert events.line_format_for("stopwatch", "start") == "{event}"
+    assert events.line_format_for("stopwatch", "stop") == ""

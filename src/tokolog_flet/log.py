@@ -12,8 +12,12 @@ import re
 from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from tokolog_flet.timer import Countdown, State, Stopwatch, format_seconds
+
+if TYPE_CHECKING:
+    from tokolog_flet.config import Profile
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 DEFAULT_TIME_FORMAT = "HH:mm:ss"
@@ -129,6 +133,19 @@ class EventLog:
         self._seen: dict[str, tuple[State, float, str]] = {}
         # When each mode's running session started, by the wall clock.
         self._started: dict[str, datetime] = {}
+
+    def use_profile(self, profile: "Profile", name: str) -> None:
+        """Take the log settings of ``profile``, called ``name``.
+
+        Same log object, so a running timer isn't taken for a fresh start.
+        """
+        self.folder = profile.log_folder
+        self.file = profile.log_file
+        self.date_format = profile.log_date_format
+        self.time_format = profile.log_time_format
+        self.line_format = profile.log_line_format
+        self.lines = profile.log_lines
+        self.profile = name
 
     def update(self, mode: str, timer: Stopwatch, label: str = "") -> None:
         seen = timer.state, timer.elapsed, timer.display()
