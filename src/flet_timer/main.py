@@ -17,10 +17,11 @@ STOPWATCH = "stopwatch"
 
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
-    page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
-    page.vertical_alignment = ft.MainAxisAlignment.CENTER
-    page.window.width = 450
-    page.window.height = 360
+    page.window.width = 380
+    page.window.height = 260
+    page.window.title_bar_hidden = True
+    page.window.title_bar_buttons_hidden = True
+    page.padding = 4
 
     timers: dict[str, Stopwatch] = {
         COUNTDOWN: Countdown(config.default_seconds),
@@ -33,15 +34,32 @@ def main(page: ft.Page, config: Config) -> None:
     )
 
     mode = ft.SegmentedButton(
-        selected=[COUNTDOWN],
+        selected=[current],
         segments=[
-            ft.Segment(value=COUNTDOWN, label="Timer", icon=ft.Icons.HOURGLASS_BOTTOM),
-            ft.Segment(value=STOPWATCH, label="Stopwatch", icon=ft.Icons.TIMER),
+            ft.Segment(value=COUNTDOWN, label="Timer"),
+            ft.Segment(value=STOPWATCH, label="Stopwatch"),
         ],
+        show_selected_icon=False,
+        tooltip="Select mode",
+        style=ft.ButtonStyle(
+            padding=ft.Padding.symmetric(horizontal=30, vertical=0),
+            text_style=ft.TextStyle(size=11),
+            visual_density=ft.VisualDensity.COMPACT,
+        ),
     )
-    label = ft.TextField(hint_text="Label (optional)", width=300, dense=True)
-    display = ft.Text(timer.display(), size=64)
-    start_pause = ft.FilledButton("Start")
+    # A borderless caption above the time, so it reads as a title rather than a form field.
+    label = ft.TextField(
+        hint_text="Add a label",
+        width=260,
+        dense=True,
+        text_size=16,
+        text_align=ft.TextAlign.CENTER,
+        border=ft.NoInputBorder(),
+        color=ft.Colors.ON_SURFACE_VARIANT,
+        hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
+    )
+    display = ft.Text(timer.display(), size=72, weight=ft.FontWeight.W_300)
+    start_pause = ft.FilledButton("Start", width=104)
 
     def log_state() -> None:
         events.update(current, timer, (label.value or "").strip())
@@ -84,16 +102,76 @@ def main(page: ft.Page, config: Config) -> None:
         timer.reset()
         render()
 
+    def on_minimize(_: ft.Event[ft.IconButton]) -> None:
+        page.window.minimized = True
+        page.update()
+
+    async def on_close(_: ft.Event[ft.IconButton]) -> None:
+        await page.window.close()
+
+    def window_button(icon: ft.IconData, tooltip: str, on_click) -> ft.IconButton:
+        return ft.IconButton(
+            icon,
+            icon_size=14,
+            tooltip=tooltip,
+            on_click=on_click,
+            style=ft.ButtonStyle(padding=4),
+            width=26,
+            height=26,
+        )
+
     mode.on_change = on_mode_change
     start_pause.on_click = on_start_pause
+    # No title bar, so the whole window is the drag handle.
     page.add(
-        mode,
-        label,
-        display,
-        ft.Row(
-            [start_pause, ft.OutlinedButton("Reset", on_click=on_reset)],
-            alignment=ft.MainAxisAlignment.CENTER,
-        ),
+        ft.WindowDragArea(
+            ft.Column(
+                [
+                    ft.Row(
+                        [
+                            # Balances the window buttons so the mode toggle sits centred.
+                            ft.Container(width=52),
+                            mode,
+                            ft.Row(
+                                [
+                                    window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
+                                    window_button(ft.Icons.CLOSE, "Close", on_close),
+                                ],
+                                spacing=0,
+                            ),
+                        ],
+                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    ),
+                    ft.Column(
+                        [
+                            ft.Column(
+                                [label, display],
+                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                spacing=0,
+                            ),
+                            ft.Row(
+                                [
+                                    start_pause,
+                                    ft.OutlinedButton("Reset", width=104, on_click=on_reset),
+                                ],
+                                alignment=ft.MainAxisAlignment.CENTER,
+                                spacing=8,
+                            ),
+                        ],
+                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                        alignment=ft.MainAxisAlignment.CENTER,
+                        spacing=0,
+                        expand=True,
+                    ),
+                    # Mirrors the top bar's height so the content sits in the true centre.
+                    ft.Container(height=24),
+                ],
+                expand=True,
+            ),
+            maximizable=False,
+            expand=True,
+        )
     )
 
 
