@@ -9,8 +9,9 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 - **Start / pause / resume / reset flow** with elapsed/display time tracking.
 - **Compact view toggle** for a minimal always-visible timer window.
 - **Editable label** per session, used in log output.
-- **Named profiles**, each with its own log file, line format, countdown default and label.
-- **Configurable settings file** for defaults and logging behavior.
+- **Named profiles**, each with its own log file, line formats, countdown default, label
+  and, if wanted, a single mode (e.g. a timer-only pomodoro profile).
+- **Settings in a TOML file**: the gear opens it in your editor, and saving applies it.
 - **Daily log files** with templated file names and line formats.
 - **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}`, `{profile}`, session times and countdown details.
 - **Per-event lines**: different lines for start, stop and the rest, per mode if wanted, or none at all.
@@ -145,14 +146,20 @@ file = "timesheet-{date}.csv"
 line_format = "{date},{time},{label},{event},{elapsed}"
 ```
 
-Once the config has a profile besides `default`, a picker appears at the bottom of the window. It is
-locked while a timer runs or is paused, so a session stays in one log. Switching changes
-where the next events go, and an untouched countdown takes the profile's default minutes.
-A profile with a `mode` switches to it and locks the mode switch; if a timer is running
-or paused at the time, e.g. after editing the config, it switches once that timer is
-reset.
+Once the config has a profile besides `default`, a picker appears at the bottom of the
+window. It is locked while a timer runs or is paused, so a session stays in one log.
+Switching changes where the next events go, and an untouched countdown takes the
+profile's default minutes.
+
+A profile with a `mode` switches to it and locks the Timer/Stopwatch switch, e.g.
+`mode = "countdown"` for a pomodoro profile. `mode = "any"` allows both again, for a
+profile whose default sets one. If a timer is running or paused when the mode changes,
+e.g. after editing the config, it switches once that timer is reset.
+
 The app reopens on the profile picked last, which it remembers in
-`~/.local/state/tokolog-flet/state.json`.
+`~/.local/state/tokolog-flet/state.json`. [config.example.toml](src/tokolog_flet/config.example.toml)
+has ready-made profiles to start from: a Markdown journal, a one-line-per-session
+summary, a CSV timesheet and a pomodoro.
 
 ## Check
 
