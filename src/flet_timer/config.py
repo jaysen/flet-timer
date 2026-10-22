@@ -23,7 +23,7 @@ from flet_timer.log import (
     template_error,
 )
 
-DEFAULT_MINUTES = 5
+DEFAULT_MINUTES = 25
 
 
 class ConfigError(Exception):

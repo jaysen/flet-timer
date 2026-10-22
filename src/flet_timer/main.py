@@ -15,12 +15,16 @@ TICK_SECONDS = 0.2
 COUNTDOWN = "countdown"
 SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
 STOPWATCH = "stopwatch"
+# Window and time sizes for the full and compact views.
+FULL_SIZE = (380, 260)
+COMPACT_SIZE = (240, 170)
+FULL_TIME_SIZE = 72
+COMPACT_TIME_SIZE = 48
 
 
 def main(page: ft.Page, config: Config) -> None:
     page.title = "FLET-Timer"
-    page.window.width = 380
-    page.window.height = 260
+    page.window.width, page.window.height = FULL_SIZE
     page.window.title_bar_hidden = True
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
@@ -64,12 +68,12 @@ def main(page: ft.Page, config: Config) -> None:
         color=ft.Colors.ON_SURFACE_VARIANT,
         hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
     )
-    display = ft.Text(timer.display(), size=72, weight=ft.FontWeight.W_300)
+    display = ft.Text(timer.display(), size=FULL_TIME_SIZE, weight=ft.FontWeight.W_300)
     # Clicking the countdown's time swaps it for this field, styled to look the same.
     time_field = ft.TextField(
         width=300,
         dense=True,
-        text_size=72,
+        text_size=FULL_TIME_SIZE,
         text_style=ft.TextStyle(weight=ft.FontWeight.W_300),
         text_align=ft.TextAlign.CENTER,
         border=ft.NoInputBorder(),
@@ -191,6 +195,30 @@ def main(page: ft.Page, config: Config) -> None:
         page.window.minimized = True
         page.update()
 
+    compact = False
+    full_size = FULL_SIZE
+
+    def on_toggle_compact(_: ft.Event[ft.IconButton]) -> None:
+        nonlocal compact, full_size
+        compact = not compact
+        if compact:
+            # Remember the full size so going back restores it, even if resized.
+            full_size = page.window.width, page.window.height
+            page.window.width, page.window.height = COMPACT_SIZE
+        else:
+            page.window.width, page.window.height = full_size
+        # Only the label, time and buttons stay; the window buttons shift right.
+        settings_slot.visible = mode.visible = bottom_spacer.visible = not compact
+        top_bar.alignment = (
+            ft.MainAxisAlignment.END if compact else ft.MainAxisAlignment.SPACE_BETWEEN
+        )
+        size = COMPACT_TIME_SIZE if compact else FULL_TIME_SIZE
+        display.size = time_field.text_size = size
+        label.width = 200 if compact else 260
+        compact_button.icon = ft.Icons.OPEN_IN_FULL if compact else ft.Icons.CLOSE_FULLSCREEN
+        compact_button.tooltip = "Full view" if compact else "Compact view"
+        page.update()
+
     async def on_close(_: ft.Event[ft.IconButton]) -> None:
         await page.window.close()
 
@@ -204,6 +232,32 @@ def main(page: ft.Page, config: Config) -> None:
             width=26,
             height=26,
         )
+
+    # As wide as the window buttons so the mode toggle sits centred.
+    settings_slot = ft.Container(
+        window_button(ft.Icons.SETTINGS, "Settings", on_settings),
+        width=78,
+        alignment=ft.Alignment.CENTER_LEFT,
+    )
+    compact_button = window_button(ft.Icons.CLOSE_FULLSCREEN, "Compact view", on_toggle_compact)
+    top_bar = ft.Row(
+        [
+            settings_slot,
+            mode,
+            ft.Row(
+                [
+                    compact_button,
+                    window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
+                    window_button(ft.Icons.CLOSE, "Close", on_close),
+                ],
+                spacing=0,
+            ),
+        ],
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+    )
+    # Mirrors the top bar's height so the content sits in the true centre.
+    bottom_spacer = ft.Container(height=24)
 
     mode.on_change = on_mode_change
     time_display.on_tap = on_time_click
@@ -220,26 +274,7 @@ def main(page: ft.Page, config: Config) -> None:
                 ft.WindowDragArea(ft.Container(), maximizable=False, expand=True),
                 ft.Column(
                     [
-                        ft.Row(
-                            [
-                                # As wide as the window buttons so the mode toggle sits centred.
-                                ft.Container(
-                                    window_button(ft.Icons.SETTINGS, "Settings", on_settings),
-                                    width=52,
-                                    alignment=ft.Alignment.CENTER_LEFT,
-                                ),
-                                mode,
-                                ft.Row(
-                                    [
-                                        window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
-                                        window_button(ft.Icons.CLOSE, "Close", on_close),
-                                    ],
-                                    spacing=0,
-                                ),
-                            ],
-                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                        ),
+                        top_bar,
                         ft.Column(
                             [
                                 ft.Column(
@@ -261,8 +296,7 @@ def main(page: ft.Page, config: Config) -> None:
                             spacing=0,
                             expand=True,
                         ),
-                        # Mirrors the top bar's height so the content sits in the true centre.
-                        ft.Container(height=24),
+                        bottom_spacer,
                     ],
                     expand=True,
                 ),
