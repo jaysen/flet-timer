@@ -44,13 +44,6 @@ FULL_BUTTON_WIDTH = 100
 COMPACT_BUTTON_WIDTH = 76
 
 
-def mode_line_formats(profile: Profile) -> dict[str, str]:
-    return {
-        COUNTDOWN: profile.log_line_format_countdown,
-        STOPWATCH: profile.log_line_format_stopwatch,
-    }
-
-
 def open_in_editor(path: Path) -> None:
     """Open ``path`` in the system's default app for it, without waiting."""
     if sys.platform == "win32":
@@ -86,7 +79,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         profile.log_time_format,
         profile.log_line_format,
         profile=profile_name,
-        mode_line_formats=mode_line_formats(profile),
+        lines=profile.log_lines,
     )
 
     mode = ft.SegmentedButton(
@@ -285,7 +278,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         events.date_format = new.log_date_format
         events.time_format = new.log_time_format
         events.line_format = new.log_line_format
-        events.mode_line_formats = mode_line_formats(new)
+        events.lines = new.log_lines
         events.profile = profile_name
 
     def apply_config(new: Config) -> None:

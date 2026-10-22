@@ -42,6 +42,8 @@ LINE_PLACEHOLDERS = (
     "paused",
 )
 
+MODES = ("countdown", "stopwatch")
+EVENT_NAMES = ("start", "pause", "resume", "stop", "finish")
 EVENTS: dict[tuple[State, State], str] = {
     (State.IDLE, State.RUNNING): "start",
     (State.PAUSED, State.RUNNING): "resume",
@@ -98,8 +100,9 @@ def _safe(text: str) -> str:
 class EventLog:
     """Appends a line per event to a dated file in ``folder``.
 
-    The line is the mode's entry in ``mode_line_formats`` if it has a non-blank one,
-    otherwise ``line_format``.
+    ``lines`` can give the line for an event (``stop``), a mode (``countdown``) or both
+    (``countdown.stop``); the most specific wins, else ``line_format``. An empty line
+    means the event isn't logged.
     """
 
     def __init__(
@@ -111,7 +114,7 @@ class EventLog:
         line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
         profile: str = "",
-        mode_line_formats: dict[str, str] | None = None,
+        lines: dict[str, str] | None = None,
     ) -> None:
         self.folder = folder
         self.file = file
@@ -120,7 +123,7 @@ class EventLog:
         self.line_format = line_format
         self.now = now
         self.profile = profile
-        self.mode_line_formats = mode_line_formats or {}
+        self.lines = lines or {}
         self._seen: dict[str, tuple[State, float, str]] = {}
         # When each mode's running session started, by the wall clock.
         self._started: dict[str, datetime] = {}
@@ -148,9 +151,11 @@ class EventLog:
             else self._started.get(mode)
         )
         since = (stamp - started).total_seconds() if started else None
+        # Skipped events still count above, so a stop line can report on the whole session.
+        if not (line_format := self.line_format_for(mode, event)):
+            return
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
-        line_format = self.mode_line_formats.get(mode) or self.line_format
         line = line_format.format(
             date=format_date(self.date_format, stamp),
             time=format_time(self.time_format, stamp),
@@ -174,6 +179,12 @@ class EventLog:
             line = "\n" + line
         with path.open("a", encoding="utf-8") as f:
             f.write(line)
+
+    def line_format_for(self, mode: str, event: str) -> str:
+        for key in (f"{mode}.{event}", event, mode):
+            if key in self.lines:
+                return self.lines[key]
+        return self.line_format
 
 
 def _ends_with_newline(path: Path) -> bool:

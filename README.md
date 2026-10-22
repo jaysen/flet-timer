@@ -13,7 +13,7 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 - **Configurable settings file** for defaults and logging behavior.
 - **Daily log files** with templated file names and line formats.
 - **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}`, `{profile}`, session times and countdown details.
-- **Per-mode line formats**, so timer and stopwatch events can log different lines.
+- **Per-event lines**: different lines for start, stop and the rest, per mode if wanted, or none at all.
 
 
 ## Setup
@@ -105,16 +105,27 @@ line_format = "- {time} {mode} {event} {display}"
 `file` can use `{date}`, `{label}` and `{profile}`. See
 [config.example.toml](src/tokolog_flet/config.example.toml) for details.
 
-To log a different line for one mode, set `line_format_countdown` or
-`line_format_stopwatch`; the other mode keeps `line_format`:
+To log different lines for particular events or modes, add a `lines` table to the
+profile. Keys are an event (`start`, `pause`, `resume`, `stop`, `finish`), a mode
+(`countdown`, `stopwatch`) or both (`countdown.stop`). The most specific match wins,
+and events without one use `line_format`. An empty line means the event isn't logged:
 
 ```toml
 [profiles.default]
-line_format = "- {time} {event} {elapsed} {label}"
-line_format_countdown = "- {time} {event} {timer_minutes} min {label}"
+line_format = "- {time} {event} {label}"
+
+[profiles.default.lines]
+start = "- {time} ▶ {label}"
+stop = "- {started}-{time} {label} ran {elapsed}, paused {paused}"
+countdown.start = "- {time} ▶ {label} ({timer_minutes}m)"
+countdown.finish = "- {started}-{time} ✓ {label} {timer_minutes}m done"
+pause = ""    # not logged
+resume = ""
 ```
 
-A profile that sets its own `line_format` doesn't take these from `[profiles.default]`.
+Skipped events still count, so the stop line above includes the pauses it didn't log.
+A profile's own `lines` table replaces the default profile's, and a profile that sets
+its own `line_format` takes no lines from `[profiles.default]`.
 
 ## Profiles
 

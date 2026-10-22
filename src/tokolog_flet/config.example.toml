@@ -40,10 +40,19 @@ default_minutes = 25
 #   paused:      time spent paused (since_start minus elapsed)
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
-# A different line for one mode; unset, line_format is used. A profile that sets its
-# own line_format doesn't take these from [profiles.default].
-# line_format_countdown = "- {time} {event} {timer_minutes} min {label}"
-# line_format_stopwatch = "- {started}-{time} {event} {elapsed} {label}"
+
+# Different lines for particular events or modes. Keys are an event (start, pause,
+# resume, stop, finish), a mode (countdown, stopwatch) or both (countdown.stop); the
+# most specific wins, and events without one use line_format. An empty line means the
+# event isn't logged. A profile's own lines table replaces this one, and a profile that
+# sets its own line_format takes no lines from here.
+# [profiles.default.lines]
+# start = "- {time} ▶ {label}"
+# stop = "- {started}-{time} {label} ran {elapsed}, paused {paused}"
+# countdown.start = "- {time} ▶ {label} ({timer_minutes}m)"
+# countdown.finish = "- {started}-{time} ✓ {label} {timer_minutes}m done"
+# pause = ""
+# resume = ""
 
 # More profiles, picked at the bottom of the window. Set only what differs from
 # [profiles.default].
