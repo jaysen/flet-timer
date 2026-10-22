@@ -27,7 +27,14 @@ WINDOW_SIZE = (440, 620)
 DIALOG_WIDTH = 360
 SECTIONS = {"timer": ("Timer", ft.Icons.TIMER_OUTLINED), "log": ("Log", ft.Icons.NOTES)}
 # Templates are easier to read, and their spacing easier to see, in a fixed-width font.
-MONOSPACE = {"file", "date_format", "time_format", "line_format"}
+MONOSPACE = {
+    "file",
+    "date_format",
+    "time_format",
+    "line_format",
+    "line_format_countdown",
+    "line_format_stopwatch",
+}
 NUMBER = ft.InputFilter(regex_string=r"^\d*\.?\d*$")
 
 

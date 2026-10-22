@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
 
-from tokolog_flet.timer import State, Stopwatch, format_seconds
+from tokolog_flet.timer import Countdown, State, Stopwatch, format_seconds
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 DEFAULT_TIME_FORMAT = "HH:mm:ss"
@@ -24,7 +24,23 @@ DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
 TIME_TOKENS = re.compile("HH|hh|mm|ss|AM")
 FILE_PLACEHOLDERS = ("date", "label", "profile")
 # display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
-LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display", "label", "profile")
+# The timer_ ones are blank for a stopwatch. started is the clock time of the start;
+# since_start is the time since then, pauses included, and paused the part spent paused.
+LINE_PLACEHOLDERS = (
+    "date",
+    "time",
+    "mode",
+    "event",
+    "elapsed",
+    "display",
+    "label",
+    "profile",
+    "timer_minutes",
+    "timer_remaining",
+    "started",
+    "since_start",
+    "paused",
+)
 
 EVENTS: dict[tuple[State, State], str] = {
     (State.IDLE, State.RUNNING): "start",
@@ -80,7 +96,11 @@ def _safe(text: str) -> str:
 
 
 class EventLog:
-    """Appends a ``line_format`` line per event to a dated file in ``folder``."""
+    """Appends a line per event to a dated file in ``folder``.
+
+    The line is the mode's entry in ``mode_line_formats`` if it has a non-blank one,
+    otherwise ``line_format``.
+    """
 
     def __init__(
         self,
@@ -91,6 +111,7 @@ class EventLog:
         line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
         profile: str = "",
+        mode_line_formats: dict[str, str] | None = None,
     ) -> None:
         self.folder = folder
         self.file = file
@@ -99,7 +120,10 @@ class EventLog:
         self.line_format = line_format
         self.now = now
         self.profile = profile
+        self.mode_line_formats = mode_line_formats or {}
         self._seen: dict[str, tuple[State, float, str]] = {}
+        # When each mode's running session started, by the wall clock.
+        self._started: dict[str, datetime] = {}
 
     def update(self, mode: str, timer: Stopwatch, label: str = "") -> None:
         seen = timer.state, timer.elapsed, timer.display()
@@ -108,13 +132,26 @@ class EventLog:
         if event := EVENTS.get((before[0], seen[0])):
             # A stop has already reset the timer, so report the time it had reached.
             _, elapsed, display = before if event == "stop" else seen
-            self._write(mode, event, elapsed, display, label)
+            self._write(mode, event, elapsed, display, label, timer)
 
-    def _write(self, mode: str, event: str, elapsed: float, display: str, label: str) -> None:
+    def _write(
+        self, mode: str, event: str, elapsed: float, display: str, label: str, timer: Stopwatch
+    ) -> None:
         stamp = self.now()
+        countdown = isinstance(timer, Countdown)
+        if event == "start":
+            self._started[mode] = stamp
+        # The session ends here, but this line still reports on it.
+        started = (
+            self._started.pop(mode, None)
+            if event in ("stop", "finish")
+            else self._started.get(mode)
+        )
+        since = (stamp - started).total_seconds() if started else None
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
-        line = self.line_format.format(
+        line_format = self.mode_line_formats.get(mode) or self.line_format
+        line = line_format.format(
             date=format_date(self.date_format, stamp),
             time=format_time(self.time_format, stamp),
             mode=mode,
@@ -123,6 +160,13 @@ class EventLog:
             display=display,
             label=label,
             profile=self.profile,
+            # Minutes as a plain number, like default_minutes: 25, or 1.5 for 1:30.
+            timer_minutes=f"{timer.duration / 60:g}" if countdown else "",
+            timer_remaining=display if countdown else "",
+            started=format_time(self.time_format, started) if started else "",
+            since_start=format_seconds(since) if since is not None else "",
+            # Wall clock and timer clock can differ by a hair; never show a negative pause.
+            paused=format_seconds(max(0.0, since - elapsed)) if since is not None else "",
         )
         line += "\n"
         # The file may be a note edited by hand; don't glue the line onto its last one.

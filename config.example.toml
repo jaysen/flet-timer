@@ -26,12 +26,23 @@ default_minutes = 25
 # time_format = "HH:mm:ss"
 # One line per event.
 # Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label} {profile}
+#               {timer_minutes} {timer_remaining} {started} {since_start} {paused}
 #   event:   start, pause, resume, stop or finish
-#   elapsed: time run so far; display: what the timer showed (countdown: time left)
+#   elapsed: time run so far, pauses left out
+#   display: what the timer showed (countdown: time left)
 #   label:   the label typed in the app, else default_label, else the mode
 #   profile: the profile picked in the app ("default" if none)
+#   timer_minutes:   the countdown's length in minutes, e.g. 25 (blank for a stopwatch)
+#   timer_remaining: the countdown's time left (blank for a stopwatch)
+#   started:     clock time the session started, in time_format
+#   since_start: time since the start, pauses included
+#   paused:      time spent paused (since_start minus elapsed)
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
+# A different line for one mode; unset, line_format is used. A profile that sets its
+# own line_format doesn't take these from [profiles.default].
+# line_format_countdown = "- {time} {event} {timer_minutes} min {label}"
+# line_format_stopwatch = "- {started}-{time} {event} {elapsed} {label}"
 
 # More profiles, picked at the bottom of the window. Set only what differs from
 # [profiles.default].

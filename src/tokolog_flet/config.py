@@ -47,6 +47,9 @@ class Profile:
     log_date_format: str = DEFAULT_DATE_FORMAT
     log_time_format: str = DEFAULT_TIME_FORMAT
     log_line_format: str = DEFAULT_LINE_FORMAT
+    # Per-mode lines; blank uses log_line_format.
+    log_line_format_countdown: str = ""
+    log_line_format_stopwatch: str = ""
 
     @property
     def default_seconds(self) -> float:
@@ -150,6 +153,12 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
     if not isinstance(line_format, str):
         raise ConfigError(f"{path}: {prefix}line_format must be a string")
     _check_template(line_format, f"{prefix}line_format", LINE_PLACEHOLDERS, path)
+    countdown_format = _mode_line_format(
+        table, "countdown", base.log_line_format_countdown, prefix, path
+    )
+    stopwatch_format = _mode_line_format(
+        table, "stopwatch", base.log_line_format_stopwatch, prefix, path
+    )
 
     return Profile(
         default_minutes=minutes,
@@ -159,7 +168,25 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
         log_date_format=date_format,
         log_time_format=time_format,
         log_line_format=line_format,
+        log_line_format_countdown=countdown_format,
+        log_line_format_stopwatch=stopwatch_format,
     )
+
+
+def _mode_line_format(
+    table: dict[str, Any], mode: str, inherited: str, prefix: str, path: Path
+) -> str:
+    """The profile's line for ``mode``; blank means its line_format."""
+    key = f"line_format_{mode}"
+    if key not in table:
+        # A profile that sets its own line_format means it for every mode, rather than
+        # keeping a per-mode line it inherited from the default profile.
+        return "" if "line_format" in table else inherited
+    value = table[key]
+    if not isinstance(value, str):
+        raise ConfigError(f"{path}: {prefix}{key} must be a string")
+    _check_template(value, f"{prefix}{key}", LINE_PLACEHOLDERS, path)
+    return value
 
 
 def _check_template(template: str, key: str, placeholders: tuple[str, ...], path: Path) -> None:
@@ -239,7 +266,21 @@ def _setting_defaults() -> list[Setting]:
             "line_format",
             "Line format",
             config.log_line_format,
-            "{date} {time} {mode} {event} {elapsed} {display} {label} {profile}",
+            "Placeholders: " + " ".join(f"{{{name}}}" for name in LINE_PLACEHOLDERS),
+        ),
+        Setting(
+            "log",
+            "line_format_countdown",
+            "Timer line format",
+            "the line format",
+            "For timer events; blank uses the line format",
+        ),
+        Setting(
+            "log",
+            "line_format_stopwatch",
+            "Stopwatch line format",
+            "the line format",
+            "For stopwatch events; blank uses the line format",
         ),
     ]
 

@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -243,3 +243,72 @@ def test_profile_in_line_and_file(tmp_path: Path, clock: FakeClock) -> None:
     s.start()
     log.update("stopwatch", s)
     assert (tmp_path / "work-a-2026-10-21.log").read_text() == "start work/a\n"
+
+
+def test_timer_placeholders(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format="{mode} {event} [{timer_minutes}] [{timer_remaining}]",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+    )
+    c, s = Countdown(90, clock), Stopwatch(clock)
+    c.start()
+    log.update("countdown", c)
+    clock.now = 30
+    log.update("countdown", c)
+    c.reset()
+    log.update("countdown", c)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == [
+        "countdown start [1.5] [01:30]",
+        "countdown stop [1.5] [01:00]",  # time left when stopped, not after the reset
+        "stopwatch start [] []",
+    ]
+
+
+def test_session_placeholders(tmp_path: Path, clock: FakeClock) -> None:
+    # The wall clock moves with the timer clock, from 09:30:00.
+    log = EventLog(
+        tmp_path,
+        time_format="HH:mm",
+        line_format="{event} {started} {since_start} {elapsed} {paused}",
+        now=lambda: datetime(2026, 10, 21, 9, 30) + timedelta(seconds=clock.now),
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 600
+    s.pause()
+    log.update("stopwatch", s)
+    clock.now = 900
+    s.start()
+    log.update("stopwatch", s)
+    clock.now = 1500
+    log.update("stopwatch", s)
+    s.reset()
+    log.update("stopwatch", s)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == [
+        "start 09:30 00:00 00:00 00:00",
+        "pause 09:30 10:00 10:00 00:00",
+        "resume 09:30 15:00 10:00 05:00",
+        "stop 09:30 25:00 20:00 05:00",
+        "start 09:55 00:00 00:00 00:00",  # a new session after the stop
+    ]
+
+
+def test_mode_line_formats(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format="{mode} {event}",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+        mode_line_formats={"countdown": "{event} {timer_minutes} min", "stopwatch": ""},
+    )
+    c, s = Countdown(1500, clock), Stopwatch(clock)
+    c.start()
+    log.update("countdown", c)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["start 25 min", "stopwatch start"]
