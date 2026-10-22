@@ -21,6 +21,9 @@ SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
 STOPWATCH = "stopwatch"
 # Window and time sizes for the full and compact views.
 FULL_SIZE = (380, 260)
+# Extra window height for the profile picker, and the gap kept under it.
+PICKER_HEIGHT = 32
+PICKER_GAP = 20
 COMPACT_SIZE = (220, 170)
 FULL_TIME_SIZE = 72
 COMPACT_TIME_SIZE = 42
@@ -96,10 +99,12 @@ def main(page: ft.Page, config: Config) -> None:
     start_pause = ft.FilledButton("Start", width=FULL_BUTTON_WIDTH)
     reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
     profile_picker = ft.Dropdown(
-        width=160,
+        width=200,
         dense=True,
-        text_size=11,
-        content_padding=ft.Padding.symmetric(horizontal=10, vertical=0),
+        text_size=14,
+        text_style=ft.TextStyle(weight=ft.FontWeight.W_200),
+        content_padding=ft.Padding.symmetric(horizontal=4, vertical=0),
+        # Borderless, so it reads as a caption rather than competing with Start/Reset.
         border=ft.NoInputBorder(),
         tooltip="Profile: where and how to log",
         leading_icon=ft.Icon(ft.Icons.TUNE, size=14),
@@ -111,7 +116,12 @@ def main(page: ft.Page, config: Config) -> None:
         ]
         profile_picker.value = profile_name
         # Nothing to pick between until the config file names a profile.
-        profile_picker.visible = bool(config.profiles) and not compact
+        shown = bool(config.profiles)
+        profile_picker.visible = shown and not compact
+        if not compact:
+            # Without the picker the bar only mirrors the top bar, so the content stays centred.
+            bottom_bar.height = PICKER_HEIGHT + PICKER_GAP if shown else 24
+            page.window.height = FULL_SIZE[1] + (PICKER_HEIGHT if shown else 0)
 
     def log_state() -> None:
         # Without a label of its own, a timer is labelled by its mode, as the hint shows.
@@ -320,7 +330,12 @@ def main(page: ft.Page, config: Config) -> None:
     )
     buttons = ft.Row([start_pause, reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
     # Mirrors the top bar's height so the content sits in the true centre.
-    bottom_bar = ft.Container(profile_picker, height=24, alignment=ft.Alignment.CENTER)
+    bottom_bar = ft.Container(
+        profile_picker,
+        height=32,
+        alignment=ft.Alignment.TOP_CENTER,
+        padding=ft.Padding.only(bottom=PICKER_GAP),
+    )
 
     sync_profile_picker()
     mode.on_change = on_mode_change
