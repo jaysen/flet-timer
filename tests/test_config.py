@@ -4,24 +4,15 @@ import pytest
 
 from tokolog_flet.config import (
     DEFAULT_MINUTES,
-    SETTINGS,
     Config,
     ConfigError,
     Profile,
-    add_profile,
-    apply_settings,
     config_mtime,
     config_path,
     create_config,
-    dumps_toml,
     load_config,
     parse_config,
-    profile_names,
     read_settings,
-    remove_profile,
-    save_settings,
-    setting_key,
-    setting_text,
 )
 
 
@@ -183,71 +174,9 @@ def test_read_settings_missing_file_is_empty(tmp_path: Path) -> None:
     assert read_settings(tmp_path / "nope.toml") == {}
 
 
-def test_setting_text_blank_when_unset() -> None:
-    minutes = SETTINGS[0]
-    assert setting_text({}, minutes) == ""
-    assert setting_text({"profiles": {"default": {"default_minutes": 25}}}, minutes) == "25"
-
-
-def test_apply_settings_sets_and_clears() -> None:
-    data = {"top": 1, "profiles": {"default": {"default_minutes": 25, "file": "a.md", "x": 1}}}
-    values = {"default_minutes": " ", "file": "b.md", "folder": "logs"}
-    assert apply_settings(data, values) == {
-        "top": 1,
-        "profiles": {"default": {"file": "b.md", "x": 1, "folder": "logs"}},
-    }
-    assert data["profiles"]["default"]["file"] == "a.md"  # input untouched
-
-
-def test_apply_settings_minutes_become_numbers() -> None:
-    assert apply_settings({}, {"default_minutes": "25"}) == {
-        "profiles": {"default": {"default_minutes": 25}}
-    }
-    assert apply_settings({}, {"default_minutes": "1.5"}) == {
-        "profiles": {"default": {"default_minutes": 1.5}}
-    }
-    with pytest.raises(ConfigError, match=r"profiles\.default\.default_minutes"):
-        apply_settings({}, {"default_minutes": "abc"})
-
-
-def test_apply_settings_keeps_spaces() -> None:
-    values = {"line_format": " - {time} ", "default_minutes": " 25 "}
-    assert apply_settings({}, values) == {
-        "profiles": {"default": {"default_minutes": 25, "line_format": " - {time} "}}
-    }
-
-
-def test_apply_settings_all_blank_is_empty() -> None:
-    assert apply_settings({"profiles": {"default": {"default_minutes": 3}}}, {}) == {}
-
-
 def test_parse_config_validates_in_memory(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"profiles\.default\.file"):
         parse_config({"profiles": {"default": {"file": "a/b"}}}, tmp_path / "config.toml")
-
-
-def test_save_round_trips(tmp_path: Path) -> None:
-    data = {
-        "top": "x",
-        "profiles": {
-            "default": {"default_minutes": 1.5, "line_format": '{time} "q" \\ é'},
-            "a b": {"file": "{date}.md", "tags": ["a", "b"]},
-        },
-        "deep": {"a": {"b": True}},
-    }
-    path = tmp_path / "sub" / "config.toml"
-    save_settings(path, data)
-    assert read_settings(path) == data
-    assert not path.with_name("config.toml.tmp").exists()
-
-
-def test_dumps_empty_is_empty() -> None:
-    assert dumps_toml({}) == ""
-
-
-def test_dumps_rejects_unwritable_value() -> None:
-    with pytest.raises(ConfigError, match="cannot write"):
-        dumps_toml({"a": None})
 
 
 def test_no_profiles_by_default(tmp_path: Path) -> None:
@@ -299,57 +228,6 @@ def test_rejects_non_table_profiles(tmp_path: Path, text: str) -> None:
 def test_rejects_default_as_profile_name(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"profiles\.Default: the default profile"):
         load_config(write(tmp_path, "[profiles.Default]\n"))
-
-
-def test_setting_text_for_profile() -> None:
-    file = next(s for s in SETTINGS if s.name == "file")
-    data = {"profiles": {"default": {"file": "a.md"}, "work": {"file": "w.md"}, "focus": {}}}
-    assert setting_text(data, file) == "a.md"
-    assert setting_text(data, file, "work") == "w.md"
-    assert setting_text(data, file, "focus") == ""
-    assert setting_text(data, file, "missing") == ""
-
-
-def test_apply_settings_to_profile() -> None:
-    data = {"profiles": {"default": {"file": "a.md"}, "work": {"file": "w.md", "extra": 1}}}
-    values = {"file": "", "line_format": "{event}", "default_minutes": "50"}
-    assert apply_settings(data, values, "work") == {
-        "profiles": {
-            "default": {"file": "a.md"},
-            "work": {"extra": 1, "line_format": "{event}", "default_minutes": 50},
-        }
-    }
-    assert data["profiles"]["work"]["file"] == "w.md"  # input untouched
-
-
-def test_apply_settings_keeps_empty_profile() -> None:
-    assert apply_settings({}, {}, "focus") == {"profiles": {"focus": {}}}
-
-
-def test_apply_settings_profile_error_names_profile() -> None:
-    with pytest.raises(ConfigError, match=r"profiles\.work\.default_minutes"):
-        apply_settings({}, {"default_minutes": "abc"}, "work")
-
-
-def test_add_and_remove_profile() -> None:
-    default = {"profiles": {"default": {"file": "a.md"}}}
-    data = add_profile(default, " work ")
-    assert data == {"profiles": {"default": {"file": "a.md"}, "work": {}}}
-    assert profile_names(add_profile(data, "focus")) == ["work", "focus"]
-    assert remove_profile(data, "work") == default
-    assert remove_profile(add_profile({}, "work"), "work") == {}
-
-
-@pytest.mark.parametrize("name", ["", "  ", "work", "Default"])
-def test_add_profile_rejects_taken_or_blank_name(name: str) -> None:
-    with pytest.raises(ConfigError):
-        add_profile({"profiles": {"work": {}}}, name)
-
-
-def test_setting_key() -> None:
-    file = next(s for s in SETTINGS if s.name == "file")
-    assert setting_key(file) == "profiles.default.file"
-    assert setting_key(file, "work") == "profiles.work.file"
 
 
 def test_default_label(tmp_path: Path) -> None:
