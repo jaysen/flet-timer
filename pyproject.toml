@@ -26,6 +26,9 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/flet_timer"]
 
+[tool.flet.app]
+path = "src"
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"
