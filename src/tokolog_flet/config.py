@@ -3,6 +3,8 @@
 The file lives at ``$XDG_CONFIG_HOME/tokolog-flet/config.toml`` (``~/.config`` if unset).
 ``$TOKOLOG_FLET_CONFIG`` overrides that path, e.g. to use a local file while developing.
 It is optional: a missing file or missing keys fall back to the defaults below.
+The app edits it by opening it in the default editor, created from ``config.example.toml``
+first if missing, and reloads it whenever it changes.
 """
 
 import json
@@ -10,6 +12,7 @@ import os
 import tomllib
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +27,8 @@ from tokolog_flet.log import (
 )
 
 DEFAULT_MINUTES = 25
+# Every setting, commented; ships inside the package.
+TEMPLATE = files("tokolog_flet") / "config.example.toml"
 
 
 class ConfigError(Exception):
@@ -75,6 +80,22 @@ def config_path() -> Path:
         return Path(override)
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     return Path(base) / "tokolog-flet" / "config.toml"
+
+
+def create_config(path: Path) -> None:
+    """Write the commented template to ``path``, unless a file is already there."""
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def config_mtime(path: Path) -> int | None:
+    """When ``path`` last changed, to notice edits; None if it doesn't exist."""
+    try:
+        return path.stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
 
 
 def read_settings(path: Path) -> dict[str, Any]:

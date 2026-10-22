@@ -10,7 +10,9 @@ from tokolog_flet.config import (
     Profile,
     add_profile,
     apply_settings,
+    config_mtime,
     config_path,
+    create_config,
     dumps_toml,
     load_config,
     parse_config,
@@ -384,3 +386,20 @@ def test_mode_line_formats(tmp_path: Path) -> None:
 def test_rejects_invalid_mode_line_format(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match=r"profiles\.default\.line_format_stopwatch: unknown"):
         load_config(write(tmp_path, '[profiles.default]\nline_format_stopwatch = "{nope}"\n'))
+
+
+def test_create_config_writes_template_once(tmp_path: Path) -> None:
+    path = tmp_path / "sub" / "config.toml"
+    create_config(path)
+    assert "[profiles.default]" in path.read_text()
+    assert load_config(path) == Config()  # the template only shows the defaults
+    path.write_text("# mine\n")
+    create_config(path)
+    assert path.read_text() == "# mine\n"
+
+
+def test_config_mtime(tmp_path: Path) -> None:
+    path = tmp_path / "config.toml"
+    assert config_mtime(path) is None
+    path.write_text("")
+    assert config_mtime(path) == path.stat().st_mtime_ns

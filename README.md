@@ -48,11 +48,11 @@ label, time and Start/Reset, e.g. to keep a running timer in a corner. The same 
 
 Optional. Settings are read from `~/.config/tokolog-flet/config.toml`
 (or `$XDG_CONFIG_HOME/tokolog-flet/config.toml`); anything left out uses the default.
-[config.example.toml](config.example.toml) lists every setting:
+[config.example.toml](src/tokolog_flet/config.example.toml) lists every setting:
 
 ```sh
 mkdir -p ~/.config/tokolog-flet 
-cp config.example.toml ~/.config/tokolog-flet/config.toml
+cp src/tokolog_flet/config.example.toml ~/.config/tokolog-flet/config.toml
 ```
 
 The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field to change it, empty one to go back to its default (the default shows as the hint), then Save. Changes apply straight away. Saving rewrites the file, so comments in it are lost; keys the app doesn't know are kept.
@@ -103,7 +103,7 @@ line_format = "- {time} {mode} {event} {display}"
 | `{paused}` | time spent paused (`{since_start}` minus `{elapsed}`) |
 
 `file` can use `{date}`, `{label}` and `{profile}`. See
-[config.example.toml](config.example.toml) for details.
+[config.example.toml](src/tokolog_flet/config.example.toml) for details.
 
 To log a different line for one mode, set `line_format_countdown` or
 `line_format_stopwatch`; the other mode keeps `line_format`:
