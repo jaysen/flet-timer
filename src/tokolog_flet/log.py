@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
 
-from tokolog_flet.timer import State, Stopwatch, format_seconds
+from tokolog_flet.timer import Countdown, State, Stopwatch, format_seconds
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 DEFAULT_TIME_FORMAT = "HH:mm:ss"
@@ -24,7 +24,19 @@ DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
 TIME_TOKENS = re.compile("HH|hh|mm|ss|AM")
 FILE_PLACEHOLDERS = ("date", "label", "profile")
 # display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
-LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display", "label", "profile")
+# The timer_ ones are blank for a stopwatch.
+LINE_PLACEHOLDERS = (
+    "date",
+    "time",
+    "mode",
+    "event",
+    "elapsed",
+    "display",
+    "label",
+    "profile",
+    "timer_minutes",
+    "timer_remaining",
+)
 
 EVENTS: dict[tuple[State, State], str] = {
     (State.IDLE, State.RUNNING): "start",
@@ -108,10 +120,13 @@ class EventLog:
         if event := EVENTS.get((before[0], seen[0])):
             # A stop has already reset the timer, so report the time it had reached.
             _, elapsed, display = before if event == "stop" else seen
-            self._write(mode, event, elapsed, display, label)
+            self._write(mode, event, elapsed, display, label, timer)
 
-    def _write(self, mode: str, event: str, elapsed: float, display: str, label: str) -> None:
+    def _write(
+        self, mode: str, event: str, elapsed: float, display: str, label: str, timer: Stopwatch
+    ) -> None:
         stamp = self.now()
+        countdown = isinstance(timer, Countdown)
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
         line = self.line_format.format(
@@ -123,6 +138,9 @@ class EventLog:
             display=display,
             label=label,
             profile=self.profile,
+            # Minutes as a plain number, like default_minutes: 25, or 1.5 for 1:30.
+            timer_minutes=f"{timer.duration / 60:g}" if countdown else "",
+            timer_remaining=display if countdown else "",
         )
         line += "\n"
         # The file may be a note edited by hand; don't glue the line onto its last one.
