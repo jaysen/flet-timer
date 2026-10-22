@@ -152,10 +152,38 @@ window. It is locked while a timer runs or is paused, so a session stays in one 
 Switching changes where the next events go, and an untouched countdown takes the
 profile's default minutes.
 
-A profile with a `mode` switches to it and locks the Timer/Stopwatch switch, e.g.
-`mode = "countdown"` for a pomodoro profile. `mode = "any"` allows both again, for a
-profile whose default sets one. If a timer is running or paused when the mode changes,
-e.g. after editing the config, it switches once that timer is stopped.
+A profile with a `mode` switches to it and locks the Timer/Stopwatch switch.
+`mode = "any"` allows both again, for a profile whose default sets one. If a timer is
+running or paused when the mode changes, e.g. after editing the config, it switches once
+that timer is stopped.
+
+For example, a pomodoro profile: 25-minute focus blocks, timer only, with a line for each
+block started, finished or given up, and pauses left out:
+
+```toml
+[profiles.pomodoro]
+mode = "countdown"
+default_minutes = 25
+default_label = "focus"
+time_format = "HH:mm"
+line_format = "- {time} {event} {label} {elapsed}"
+
+[profiles.pomodoro.lines]
+countdown.start  = "- {time} 🍅 {label}"
+countdown.finish = "- {time} 🍅 ✓ {label} ({timer_minutes} min)"
+countdown.stop   = "- {time} 🍅 ✗ {label}: gave up with {timer_remaining} left"
+pause  = ""
+resume = ""
+```
+
+which logs, for one finished block and one cut short:
+
+```
+- 09:00 🍅 focus
+- 09:25 🍅 ✓ focus (25 min)
+- 09:30 🍅 report
+- 09:41 🍅 ✗ report: gave up with 14:00 left
+```
 
 The app reopens on the profile picked last, which it remembers in
 `~/.local/state/tokolog-flet/state.json`. [config.example.toml](src/tokolog_flet/config.example.toml)
