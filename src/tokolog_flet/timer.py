@@ -15,16 +15,19 @@ class State(Enum):
     IDLE = auto()
     RUNNING = auto()
     PAUSED = auto()
+    # Stopped by hand: the time stays on show until reset.
+    STOPPED = auto()
     FINISHED = auto()
 
 
 class Stopwatch:
-    """Counts up from zero until paused or reset."""
+    """Counts up from zero until paused, stopped or reset."""
 
     def __init__(self, clock: Clock = time.monotonic) -> None:
         self.clock = clock
         self._elapsed = 0.0
         self._started_at: float | None = None
+        self._stopped = False
 
     @property
     def elapsed(self) -> float:
@@ -35,6 +38,8 @@ class Stopwatch:
     def state(self) -> State:
         if self._started_at is not None:
             return State.RUNNING
+        if self._stopped:
+            return State.STOPPED
         return State.PAUSED if self._elapsed > 0 else State.IDLE
 
     def display(self) -> str:
@@ -49,9 +54,17 @@ class Stopwatch:
             self._elapsed = self.elapsed
             self._started_at = None
 
+    def stop(self) -> None:
+        """End the run but keep its time, so it can be read before a reset."""
+        if self.state in (State.RUNNING, State.PAUSED):
+            self._elapsed = self.elapsed
+            self._started_at = None
+            self._stopped = True
+
     def reset(self) -> None:
         self._elapsed = 0.0
         self._started_at = None
+        self._stopped = False
 
 
 class Countdown(Stopwatch):

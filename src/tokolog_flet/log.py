@@ -50,6 +50,8 @@ EVENTS: dict[tuple[State, State], str] = {
     (State.RUNNING, State.PAUSED): "pause",
     (State.RUNNING, State.IDLE): "stop",
     (State.PAUSED, State.IDLE): "stop",
+    (State.RUNNING, State.STOPPED): "stop",
+    (State.PAUSED, State.STOPPED): "stop",
     (State.RUNNING, State.FINISHED): "finish",
 }
 
@@ -133,8 +135,8 @@ class EventLog:
         before = self._seen.get(mode, (State.IDLE, 0.0, ""))
         self._seen[mode] = seen
         if event := EVENTS.get((before[0], seen[0])):
-            # A stop has already reset the timer, so report the time it had reached.
-            _, elapsed, display = before if event == "stop" else seen
+            # A stop by reset has already zeroed the timer, so report the time it had reached.
+            _, elapsed, display = before if seen[0] is State.IDLE else seen
             self._write(mode, event, elapsed, display, label, timer)
 
     def _write(

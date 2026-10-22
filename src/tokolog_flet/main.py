@@ -126,7 +126,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     )
     time_display = ft.GestureDetector(display)
     start_pause = ft.FilledButton("Start", width=FULL_BUTTON_WIDTH)
-    reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
+    stop_reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
     profile_picker = ft.Dropdown(
         width=200,
         dense=True,
@@ -160,8 +160,12 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         return config.profile(profile_name).default_label or current
 
     def can_set_time() -> bool:
-        # Only before starting or once finished, so a paused countdown isn't lost by accident.
-        return isinstance(timer, Countdown) and timer.state in (State.IDLE, State.FINISHED)
+        # Only before starting or once over, so a paused countdown isn't lost by accident.
+        return isinstance(timer, Countdown) and timer.state in (
+            State.IDLE,
+            State.STOPPED,
+            State.FINISHED,
+        )
 
     def switch_mode(new: str) -> None:
         nonlocal current, timer
@@ -178,7 +182,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         if (
             locked
             and locked != current
-            and timer.state in (State.IDLE, State.FINISHED)
+            and timer.state in (State.IDLE, State.STOPPED, State.FINISHED)
             and not time_field.visible
         ):
             switch_mode(locked)
@@ -194,8 +198,12 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         time_display.mouse_cursor = ft.MouseCursor.CLICK if editable else None
         time_display.tooltip = SET_TIME_TOOLTIP if editable else None
         start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
-        start_pause.disabled = timer.state is State.FINISHED
-        # A session stays in one log; only an idle or finished timer can change profile.
+        start_pause.disabled = timer.state in (State.STOPPED, State.FINISHED)
+        # A run is stopped first, so its time can be read before Reset clears it.
+        in_progress = timer.state in (State.RUNNING, State.PAUSED)
+        stop_reset.content = "Stop" if in_progress else "Reset"
+        stop_reset.disabled = timer.state is State.IDLE
+        # A session stays in one log; only a timer that isn't under way can change profile.
         profile_picker.disabled = timer.state in (State.RUNNING, State.PAUSED)
         page.update()
 
@@ -249,9 +257,12 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             timer.start()
             page.run_task(tick)
 
-    def on_reset(_: ft.Event[ft.OutlinedButton]) -> None:
+    def on_stop_reset(_: ft.Event[ft.OutlinedButton]) -> None:
         log_state()
-        timer.reset()
+        if timer.state in (State.RUNNING, State.PAUSED):
+            timer.stop()
+        else:
+            timer.reset()
         render()
 
     def edit_config(_: ft.Event[ft.IconButton] | ft.Event[ft.Container]) -> None:
@@ -354,7 +365,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             if compact
             else None
         )
-        for button in (start_pause, reset):
+        for button in (start_pause, stop_reset):
             button.width = COMPACT_BUTTON_WIDTH if compact else FULL_BUTTON_WIDTH
             button.style = style
         buttons.spacing = 4 if compact else 8
@@ -401,7 +412,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
-    buttons = ft.Row([start_pause, reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+    buttons = ft.Row([start_pause, stop_reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
     error_text = ft.Text(size=11, color=ft.Colors.ON_ERROR_CONTAINER, max_lines=3, expand=True)
     # Stays until the file is fixed; clicking it opens the file.
     error_bar = ft.Container(
@@ -433,7 +444,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     time_field.on_blur = on_time_submit
     page.on_keyboard_event = on_key
     start_pause.on_click = on_start_pause
-    reset.on_click = on_reset
+    stop_reset.on_click = on_stop_reset
     # No title bar, so empty space is the drag handle. The drag area sits behind the
     # controls rather than wrapping them, so it can't steal their clicks.
     page.add(
