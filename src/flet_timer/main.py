@@ -20,6 +20,8 @@ FULL_SIZE = (380, 260)
 COMPACT_SIZE = (240, 170)
 FULL_TIME_SIZE = 72
 COMPACT_TIME_SIZE = 48
+FULL_BUTTON_WIDTH = 104
+COMPACT_BUTTON_WIDTH = 80
 
 
 def main(page: ft.Page, config: Config) -> None:
@@ -81,7 +83,8 @@ def main(page: ft.Page, config: Config) -> None:
         visible=False,
     )
     time_display = ft.GestureDetector(display)
-    start_pause = ft.FilledButton("Start", width=104)
+    start_pause = ft.FilledButton("Start", width=FULL_BUTTON_WIDTH)
+    reset = ft.OutlinedButton("Reset", width=FULL_BUTTON_WIDTH)
 
     def log_state() -> None:
         events.update(current, timer, (label.value or "").strip())
@@ -212,6 +215,10 @@ def main(page: ft.Page, config: Config) -> None:
         size = COMPACT_TIME_SIZE if compact else FULL_TIME_SIZE
         display.size = time_field.text_size = size
         label.width = 200 if compact else 260
+        density = ft.VisualDensity.COMPACT if compact else None
+        for button in (start_pause, reset):
+            button.width = COMPACT_BUTTON_WIDTH if compact else FULL_BUTTON_WIDTH
+            button.style = ft.ButtonStyle(visual_density=density)
         compact_button.icon = ft.Icons.OPEN_IN_FULL if compact else ft.Icons.CLOSE_FULLSCREEN
         compact_button.tooltip = "Full view" if compact else "Compact view"
         page.update()
@@ -263,6 +270,7 @@ def main(page: ft.Page, config: Config) -> None:
     time_field.on_blur = on_time_submit
     page.on_keyboard_event = on_key
     start_pause.on_click = on_start_pause
+    reset.on_click = on_reset
     # No title bar, so empty space is the drag handle. The drag area sits behind the
     # controls rather than wrapping them, so it can't steal their clicks.
     page.add(
@@ -282,7 +290,7 @@ def main(page: ft.Page, config: Config) -> None:
                                 ft.Row(
                                     [
                                         start_pause,
-                                        ft.OutlinedButton("Reset", width=104, on_click=on_reset),
+                                        reset,
                                     ],
                                     alignment=ft.MainAxisAlignment.CENTER,
                                     spacing=8,
