@@ -91,9 +91,13 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         ],
         show_selected_icon=False,
         tooltip="Select mode",
+        # Material won't go below 32 high even when compact, and a smaller height clips the
+        # text off-centre; scaling shrinks it evenly, so the text is set larger to make up.
+        scale=0.75,
         style=ft.ButtonStyle(
-            padding=ft.Padding.symmetric(horizontal=30, vertical=0),
-            text_style=ft.TextStyle(size=11),
+            # Scaling doesn't shrink the space it takes, so keep the padding modest.
+            padding=ft.Padding.symmetric(horizontal=18, vertical=0),
+            text_style=ft.TextStyle(size=14),
             visual_density=ft.VisualDensity.COMPACT,
         ),
     )
