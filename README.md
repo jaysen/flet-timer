@@ -12,7 +12,8 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 - **Named profiles**, each with its own log file, line format, countdown default and label.
 - **Configurable settings file** for defaults and logging behavior.
 - **Daily log files** with templated file names and line formats.
-- **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}` and `{profile}`.
+- **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}`, `{profile}`, session times and countdown details.
+- **Per-mode line formats**, so timer and stopwatch events can log different lines.
 
 
 ## Setup
@@ -85,10 +86,35 @@ time_format = "HH:mm"      # HH, hh (12-hour), mm, ss and AM (AM/PM) are replace
 line_format = "- {time} {mode} {event} {display}"
 ```
 
-`line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`
-(what the timer showed, so time left for a countdown), `{label}` (the label typed in
-the app, else the profile's `default_label`, else the mode) and `{profile}`. `file` can use `{date}`, `{label}` and
-`{profile}`. See [config.example.toml](config.example.toml) for details.
+`line_format` can use:
+
+| Placeholder | Value |
+| --- | --- |
+| `{date}`, `{time}` | when the event happened, in `date_format` / `time_format` |
+| `{mode}`, `{event}` | `countdown` or `stopwatch`; `start`, `pause`, `resume`, `stop` or `finish` |
+| `{elapsed}` | time run so far, pauses left out |
+| `{display}` | what the timer showed, so time left for a countdown |
+| `{label}` | the label typed in the app, else the profile's `default_label`, else the mode |
+| `{profile}` | the profile picked in the app |
+| `{timer_minutes}` | the countdown's length in minutes, e.g. `25` (blank for a stopwatch) |
+| `{timer_remaining}` | the countdown's time left (blank for a stopwatch) |
+| `{started}` | clock time the session started, in `time_format` |
+| `{since_start}` | time since the start, pauses included |
+| `{paused}` | time spent paused (`{since_start}` minus `{elapsed}`) |
+
+`file` can use `{date}`, `{label}` and `{profile}`. See
+[config.example.toml](config.example.toml) for details.
+
+To log a different line for one mode, set `line_format_countdown` or
+`line_format_stopwatch`; the other mode keeps `line_format`:
+
+```toml
+[profiles.default]
+line_format = "- {time} {event} {elapsed} {label}"
+line_format_countdown = "- {time} {event} {timer_minutes} min {label}"
+```
+
+A profile that sets its own `line_format` doesn't take these from `[profiles.default]`.
 
 ## Profiles
 
