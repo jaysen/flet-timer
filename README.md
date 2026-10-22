@@ -48,14 +48,14 @@ label, time and Start/Reset, e.g. to keep a running timer in a corner. The same 
 
 Optional. Settings are read from `~/.config/tokolog-flet/config.toml`
 (or `$XDG_CONFIG_HOME/tokolog-flet/config.toml`); anything left out uses the default.
-[config.example.toml](config.example.toml) lists every setting:
 
-```sh
-mkdir -p ~/.config/tokolog-flet 
-cp config.example.toml ~/.config/tokolog-flet/config.toml
-```
-
-The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field to change it, empty one to go back to its default (the default shows as the hint), then Save. Changes apply straight away. Saving rewrites the file, so comments in it are lost; keys the app doesn't know are kept.
+The gear icon in the top bar opens the file in your default editor. If there is no file
+yet, it is first created from [config.example.toml](src/tokolog_flet/config.example.toml),
+which lists every setting with comments. Saving the file applies it straight away; the app
+watches it for changes. If a save leaves the file unusable, e.g. an unknown placeholder,
+the app keeps the last good settings and shows the problem in a red bar until the file is
+fixed. Clicking the bar opens the file again. A broken file at startup works the same way,
+with the defaults standing in.
 
 To use a different file, e.g. a local one while developing (`config.toml` is gitignored):
 
@@ -103,7 +103,7 @@ line_format = "- {time} {mode} {event} {display}"
 | `{paused}` | time spent paused (`{since_start}` minus `{elapsed}`) |
 
 `file` can use `{date}`, `{label}` and `{profile}`. See
-[config.example.toml](config.example.toml) for details.
+[config.example.toml](src/tokolog_flet/config.example.toml) for details.
 
 To log a different line for one mode, set `line_format_countdown` or
 `line_format_stopwatch`; the other mode keeps `line_format`:
@@ -138,9 +138,6 @@ locked while a timer runs or is paused, so a session stays in one log. Switching
 where the next events go, and an untouched countdown takes the profile's default minutes.
 The app reopens on the profile picked last, which it remembers in
 `~/.local/state/tokolog-flet/state.json`.
-
-Profiles can also be added, edited and deleted in the settings popup. Pick one at the
-top. A blank field takes the default profile's value, shown as the hint.
 
 ## Check
 

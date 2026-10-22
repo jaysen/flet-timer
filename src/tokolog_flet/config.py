@@ -3,13 +3,14 @@
 The file lives at ``$XDG_CONFIG_HOME/tokolog-flet/config.toml`` (``~/.config`` if unset).
 ``$TOKOLOG_FLET_CONFIG`` overrides that path, e.g. to use a local file while developing.
 It is optional: a missing file or missing keys fall back to the defaults below.
+The app edits it by opening it in the default editor, created from ``config.example.toml``
+first if missing, and reloads it whenever it changes.
 """
 
-import json
 import os
 import tomllib
 from dataclasses import dataclass, field
-from datetime import date, datetime, time
+from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,8 @@ from tokolog_flet.log import (
 )
 
 DEFAULT_MINUTES = 25
+# Every setting, commented; ships inside the package.
+TEMPLATE = files("tokolog_flet") / "config.example.toml"
 
 
 class ConfigError(Exception):
@@ -75,6 +78,22 @@ def config_path() -> Path:
         return Path(override)
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
     return Path(base) / "tokolog-flet" / "config.toml"
+
+
+def create_config(path: Path) -> None:
+    """Write the commented template to ``path``, unless a file is already there."""
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def config_mtime(path: Path) -> int | None:
+    """When ``path`` last changed, to notice edits; None if it doesn't exist."""
+    try:
+        return path.stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
 
 
 def read_settings(path: Path) -> dict[str, Any]:
@@ -204,216 +223,3 @@ def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:
     if not isinstance(section, dict):
         raise ConfigError(f"{path}: [{name}] must be a table")
     return section
-
-
-@dataclass(frozen=True)
-class Setting:
-    # Only for grouping in the settings popup; every setting sits in its profile's table.
-    group: str
-    name: str
-    label: str
-    default: str
-    help: str
-
-
-def _setting_defaults() -> list[Setting]:
-    config = Config()
-    return [
-        Setting(
-            "timer",
-            "default_minutes",
-            "Default minutes",
-            f"{config.default_minutes:g}",
-            "Countdown start time; fractions allowed, e.g. 1.5",
-        ),
-        Setting(
-            "timer",
-            "default_label",
-            "Default label",
-            "the mode",
-            "Logged when the label is left empty",
-        ),
-        Setting(
-            "log",
-            "folder",
-            "Folder",
-            _tilde(config.log_folder),
-            "~ is expanded; relative paths start at the config file's folder",
-        ),
-        Setting(
-            "log",
-            "file",
-            "File name",
-            config.log_file,
-            "{date}, {label} and {profile} are replaced",
-        ),
-        Setting(
-            "log",
-            "date_format",
-            "Date format",
-            config.log_date_format,
-            "YYYY, YY, MM and DD are replaced",
-        ),
-        Setting(
-            "log",
-            "time_format",
-            "Time format",
-            config.log_time_format,
-            "HH, hh (12-hour), mm, ss and AM are replaced",
-        ),
-        Setting(
-            "log",
-            "line_format",
-            "Line format",
-            config.log_line_format,
-            "Placeholders: " + " ".join(f"{{{name}}}" for name in LINE_PLACEHOLDERS),
-        ),
-        Setting(
-            "log",
-            "line_format_countdown",
-            "Timer line format",
-            "the line format",
-            "For timer events; blank uses the line format",
-        ),
-        Setting(
-            "log",
-            "line_format_stopwatch",
-            "Stopwatch line format",
-            "the line format",
-            "For stopwatch events; blank uses the line format",
-        ),
-    ]
-
-
-def _tilde(path: Path) -> str:
-    try:
-        return str(Path("~") / path.relative_to(Path.home()))
-    except ValueError:
-        return str(path)
-
-
-SETTINGS = _setting_defaults()
-
-
-def setting_key(setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
-    """Where ``setting`` lives for ``profile``, as config messages name it."""
-    return f"profiles.{profile}.{setting.name}"
-
-
-def profile_names(data: dict[str, Any]) -> list[str]:
-    """The named profiles in raw settings, in file order, without the default one."""
-    profiles = data.get("profiles")
-    return [n for n in profiles if n != DEFAULT_PROFILE] if isinstance(profiles, dict) else []
-
-
-def setting_text(data: dict[str, Any], setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
-    """What the file sets for ``setting`` as editable text; empty if it is not set."""
-    profiles = data.get("profiles")
-    table = profiles.get(profile) if isinstance(profiles, dict) else None
-    value = table.get(setting.name) if isinstance(table, dict) else None
-    return "" if value is None else str(value)
-
-
-def apply_settings(
-    data: dict[str, Any], values: dict[str, str], profile: str = DEFAULT_PROFILE
-) -> dict[str, Any]:
-    """Copy of ``data`` with each setting in ``values`` (by name) set, or removed if blank.
-
-    A named profile's table is kept even when empty: an empty profile is still one.
-    Text is kept as typed: spaces can matter, e.g. at the start of a line format.
-    Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
-    """
-    profiles = data.get("profiles", {})
-    if not isinstance(profiles, dict):
-        raise ConfigError("[profiles] must be a table")
-    table = profiles.get(profile, {})
-    if not isinstance(table, dict):
-        raise ConfigError(f"[profiles.{profile}] must be a table")
-    table = dict(table)
-    for setting in SETTINGS:
-        text = values.get(setting.name, "")
-        if not text.strip():
-            table.pop(setting.name, None)
-        elif setting.name == "default_minutes":
-            table[setting.name] = _number(text.strip(), setting_key(setting, profile))
-        else:
-            table[setting.name] = text
-    profiles = {**profiles, profile: table}
-    if profile == DEFAULT_PROFILE and not table:
-        del profiles[profile]
-    result = {k: v for k, v in data.items() if k != "profiles"}
-    return {**result, "profiles": profiles} if profiles else result
-
-
-def add_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
-    """Copy of ``data`` with an empty profile called ``name``, which must be new."""
-    name = name.strip()
-    if not name:
-        raise ConfigError("A profile needs a name")
-    if name.lower() == DEFAULT_PROFILE or name in profile_names(data):
-        raise ConfigError(f"There is already a profile called {name}")
-    profiles = data.get("profiles", {})
-    return {**data, "profiles": {**profiles, name: {}}}
-
-
-def remove_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
-    """Copy of ``data`` without the profile called ``name``."""
-    profiles = {k: v for k, v in data.get("profiles", {}).items() if k != name}
-    result = {k: v for k, v in data.items() if k != "profiles"}
-    return {**result, "profiles": profiles} if profiles else result
-
-
-def _number(text: str, key: str) -> int | float:
-    try:
-        number = float(text)
-    except ValueError:
-        raise ConfigError(f"{key} must be a positive number") from None
-    return int(number) if number.is_integer() else number
-
-
-def save_settings(path: Path, data: dict[str, Any]) -> None:
-    """Write ``data`` as TOML. Comments in an existing file are not kept."""
-    text = dumps_toml(data)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_name(path.name + ".tmp")
-    temp.write_text(text, encoding="utf-8")
-    temp.replace(path)
-
-
-def dumps_toml(data: dict[str, Any]) -> str:
-    lines: list[str] = []
-    _dump_table(data, "", lines)
-    return "\n".join(lines) + "\n" if lines else ""
-
-
-def _dump_table(table: dict[str, Any], prefix: str, lines: list[str]) -> None:
-    scalars = {k: v for k, v in table.items() if not isinstance(v, dict)}
-    tables = {k: v for k, v in table.items() if isinstance(v, dict)}
-    if prefix and (scalars or not tables):
-        lines += ["", f"[{prefix}]"]
-    for key, value in scalars.items():
-        lines.append(f"{_dump_key(key)} = {_dump_value(value)}")
-    for key, value in tables.items():
-        _dump_table(value, f"{prefix}.{_dump_key(key)}" if prefix else _dump_key(key), lines)
-
-
-def _dump_key(key: str) -> str:
-    return (
-        key
-        if key and all(c.isalnum() or c in "_-" for c in key)
-        else json.dumps(key, ensure_ascii=False)
-    )
-
-
-def _dump_value(value: Any) -> str:
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, int | float):
-        return repr(value)
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=False)
-    if isinstance(value, list):
-        return "[" + ", ".join(_dump_value(v) for v in value) + "]"
-    if isinstance(value, datetime | date | time):
-        return value.isoformat()
-    raise ConfigError(f"cannot write a {type(value).__name__} value")

@@ -1,18 +1,31 @@
 """Flet UI entry point. Keep this thin: behaviour lives in timer.py."""
 
 import asyncio
+import os
+import subprocess
+import sys
 from functools import partial
 from pathlib import Path
 
 import flet as ft
 
-from tokolog_flet.config import DEFAULT_PROFILE, Config, Profile, config_path, load_config
+from tokolog_flet.config import (
+    DEFAULT_PROFILE,
+    Config,
+    ConfigError,
+    Profile,
+    config_mtime,
+    config_path,
+    create_config,
+    load_config,
+)
 from tokolog_flet.log import EventLog
-from tokolog_flet.settings import WINDOW_SIZE, open_settings
 from tokolog_flet.state import load_last_profile, save_last_profile
 from tokolog_flet.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
+# How often to look for edits to the config file.
+CONFIG_POLL_SECONDS = 1.0
 # Also picked up by `flet build` as the app icon.
 ICON = Path(__file__).parent.parent / "assets" / "icon.png"
 
@@ -38,7 +51,17 @@ def mode_line_formats(profile: Profile) -> dict[str, str]:
     }
 
 
-def main(page: ft.Page, config: Config) -> None:
+def open_in_editor(path: Path) -> None:
+    """Open ``path`` in the system's default app for it, without waiting."""
+    if sys.platform == "win32":
+        os.startfile(path)
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def main(page: ft.Page, config: Config, config_error: str = "") -> None:
+    """``config_error`` is why the config file couldn't be used; the defaults stand in."""
     page.title = "Tokolog-flet"
     page.window.width, page.window.height = FULL_SIZE
     page.window.icon = str(ICON)
@@ -215,17 +238,37 @@ def main(page: ft.Page, config: Config) -> None:
         timer.reset()
         render()
 
-    def on_settings(_: ft.Event[ft.IconButton]) -> None:
+    def edit_config(_: ft.Event[ft.IconButton] | ft.Event[ft.Container]) -> None:
         finish_setting_time(apply=False)
-        size = page.window.width, page.window.height
-        page.window.width, page.window.height = WINDOW_SIZE
-
-        def restore_window() -> None:
-            page.window.width, page.window.height = size
+        path = config_path()
+        try:
+            create_config(path)
+            open_in_editor(path)
+        except OSError as e:
+            show_error(f"Could not open {path}: {e.strerror or e}")
             page.update()
 
-        open_settings(page, config_path(), apply_config, restore_window, profile_name)
-        page.update()
+    def show_error(message: str) -> None:
+        error_text.value = message
+        error_bar.visible = bool(message)
+
+    async def watch_config() -> None:
+        # Saving in the editor is the "apply"; a broken save keeps the last good config.
+        path = config_path()
+        seen = config_mtime(path)
+        while True:
+            await asyncio.sleep(CONFIG_POLL_SECONDS)
+            if (changed := config_mtime(path)) == seen:
+                continue
+            seen = changed
+            try:
+                new = load_config(path)
+            except ConfigError as e:
+                show_error(str(e).removeprefix(f"{path}: "))
+                page.update()
+                continue
+            show_error("")
+            apply_config(new)
 
     def use_profile(old: Profile, new: Profile) -> None:
         countdown = timers[COUNTDOWN]
@@ -318,7 +361,9 @@ def main(page: ft.Page, config: Config) -> None:
         )
 
     # As wide as the window buttons so the mode toggle sits centred.
-    settings_button = window_button(ft.Icons.SETTINGS, "Settings", on_settings)
+    settings_button = window_button(
+        ft.Icons.SETTINGS, "Settings: opens config.toml; saving it applies", edit_config
+    )
     compact_button = window_button(ft.Icons.CLOSE_FULLSCREEN, "Compact view", on_toggle_compact)
     settings_slot = ft.Container(
         ft.Row([settings_button, compact_button], spacing=0),
@@ -341,6 +386,20 @@ def main(page: ft.Page, config: Config) -> None:
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
     buttons = ft.Row([start_pause, reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
+    error_text = ft.Text(size=11, color=ft.Colors.ON_ERROR_CONTAINER, max_lines=3, expand=True)
+    # Stays until the file is fixed; clicking it opens the file.
+    error_bar = ft.Container(
+        ft.Row(
+            [ft.Icon(ft.Icons.ERROR_OUTLINE, size=14, color=ft.Colors.ERROR), error_text],
+            spacing=6,
+        ),
+        bgcolor=ft.Colors.ERROR_CONTAINER,
+        border_radius=6,
+        padding=ft.Padding.symmetric(horizontal=8, vertical=4),
+        tooltip=f"Problem in {config_path()}; click to edit",
+        on_click=edit_config,
+    )
+    show_error(config_error.removeprefix(f"{config_path()}: "))
     # Mirrors the top bar's height so the content sits in the true centre.
     bottom_bar = ft.Container(
         profile_picker,
@@ -368,6 +427,7 @@ def main(page: ft.Page, config: Config) -> None:
                 ft.Column(
                     [
                         top_bar,
+                        error_bar,
                         ft.Column(
                             [
                                 ft.Column(
@@ -390,11 +450,16 @@ def main(page: ft.Page, config: Config) -> None:
             expand=True,
         )
     )
+    page.run_task(watch_config)
 
 
 def run() -> None:
-    # Load before opening the window so a bad config fails fast with a readable error.
-    ft.run(partial(main, config=load_config()))
+    # A broken config still opens the app, on the defaults, so the gear can fix it.
+    try:
+        config, error = load_config(), ""
+    except ConfigError as e:
+        config, error = Config(), str(e)
+    ft.run(partial(main, config=config, config_error=error))
 
 
 if __name__ == "__main__":
