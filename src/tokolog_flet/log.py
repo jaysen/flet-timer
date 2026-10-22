@@ -22,9 +22,9 @@ DEFAULT_LINE_FORMAT = "{time}  {mode:<9}  {event:<6}  {elapsed}"
 
 DATE_TOKENS = re.compile("YYYY|YY|MM|DD")
 TIME_TOKENS = re.compile("HH|hh|mm|ss|AM")
-FILE_PLACEHOLDERS = ("date", "label")
+FILE_PLACEHOLDERS = ("date", "label", "profile")
 # display is what the timer showed: remaining time for a countdown, elapsed for a stopwatch.
-LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display", "label")
+LINE_PLACEHOLDERS = ("date", "time", "mode", "event", "elapsed", "display", "label", "profile")
 
 EVENTS: dict[tuple[State, State], str] = {
     (State.IDLE, State.RUNNING): "start",
@@ -67,11 +67,16 @@ def template_error(template: str, placeholders: Iterable[str]) -> str | None:
     return None
 
 
-def log_filename(file: str, date_format: str, day: date, label: str = "") -> str:
+def log_filename(file: str, date_format: str, day: date, label: str = "", profile: str = "") -> str:
     """Fill ``file``'s placeholders, e.g. ``flet-{date}.md`` -> ``flet-2026-10-21.md``."""
-    # A label is free text; keep it from turning the name into a path.
-    safe_label = label.replace("/", "-").replace("\\", "-")
-    return file.format(date=format_date(date_format, day), label=safe_label)
+    return file.format(
+        date=format_date(date_format, day), label=_safe(label), profile=_safe(profile)
+    )
+
+
+def _safe(text: str) -> str:
+    """Free text for a file name; keep it from turning the name into a path."""
+    return text.replace("/", "-").replace("\\", "-")
 
 
 class EventLog:
@@ -85,6 +90,7 @@ class EventLog:
         time_format: str = DEFAULT_TIME_FORMAT,
         line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
+        profile: str = "",
     ) -> None:
         self.folder = folder
         self.file = file
@@ -92,6 +98,7 @@ class EventLog:
         self.time_format = time_format
         self.line_format = line_format
         self.now = now
+        self.profile = profile
         self._seen: dict[str, tuple[State, float, str]] = {}
 
     def update(self, mode: str, timer: Stopwatch, label: str = "") -> None:
@@ -106,7 +113,7 @@ class EventLog:
     def _write(self, mode: str, event: str, elapsed: float, display: str, label: str) -> None:
         stamp = self.now()
         self.folder.mkdir(parents=True, exist_ok=True)
-        path = self.folder / log_filename(self.file, self.date_format, stamp, label)
+        path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
         line = self.line_format.format(
             date=format_date(self.date_format, stamp),
             time=format_time(self.time_format, stamp),
@@ -115,6 +122,7 @@ class EventLog:
             elapsed=format_seconds(elapsed),
             display=display,
             label=label,
+            profile=self.profile,
         )
         line += "\n"
         # The file may be a note edited by hand; don't glue the line onto its last one.

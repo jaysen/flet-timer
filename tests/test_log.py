@@ -229,3 +229,17 @@ def test_label_in_line_and_file(tmp_path: Path, clock: FakeClock) -> None:
     s.start()
     log.update("stopwatch", s, "writing")
     assert (tmp_path / "writing.log").read_text() == "start writing\n"
+
+
+def test_profile_in_line_and_file(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        file="{profile}-{date}.log",
+        line_format="{event} {profile}",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+        profile="work/a",
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert (tmp_path / "work-a-2026-10-21.log").read_text() == "start work/a\n"

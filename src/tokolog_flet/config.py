@@ -206,7 +206,13 @@ def _setting_defaults() -> list[Setting]:
             _tilde(config.log_folder),
             "~ is expanded; relative paths start at the config file's folder",
         ),
-        Setting("log", "file", "File name", config.log_file, "{date} and {label} are replaced"),
+        Setting(
+            "log",
+            "file",
+            "File name",
+            config.log_file,
+            "{date}, {label} and {profile} are replaced",
+        ),
         Setting(
             "log",
             "date_format",
@@ -226,7 +232,7 @@ def _setting_defaults() -> list[Setting]:
             "line_format",
             "Line format",
             config.log_line_format,
-            "{date} {time} {mode} {event} {elapsed} {display} {label}",
+            "{date} {time} {mode} {event} {elapsed} {display} {label} {profile}",
         ),
     ]
 
