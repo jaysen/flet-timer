@@ -212,58 +212,61 @@ def main(page: ft.Page, config: Config) -> None:
     time_field.on_blur = on_time_submit
     page.on_keyboard_event = on_key
     start_pause.on_click = on_start_pause
-    # No title bar, so the whole window is the drag handle.
+    # No title bar, so empty space is the drag handle. The drag area sits behind the
+    # controls rather than wrapping them, so it can't steal their clicks.
     page.add(
-        ft.WindowDragArea(
-            ft.Column(
-                [
-                    ft.Row(
-                        [
-                            # As wide as the window buttons so the mode toggle sits centred.
-                            ft.Container(
-                                window_button(ft.Icons.SETTINGS, "Settings", on_settings),
-                                width=52,
-                                alignment=ft.Alignment.CENTER_LEFT,
-                            ),
-                            mode,
-                            ft.Row(
-                                [
-                                    window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
-                                    window_button(ft.Icons.CLOSE, "Close", on_close),
-                                ],
-                                spacing=0,
-                            ),
-                        ],
-                        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
-                    ),
-                    ft.Column(
-                        [
-                            ft.Column(
-                                [label, time_display, time_field],
-                                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                                spacing=0,
-                            ),
-                            ft.Row(
-                                [
-                                    start_pause,
-                                    ft.OutlinedButton("Reset", width=104, on_click=on_reset),
-                                ],
-                                alignment=ft.MainAxisAlignment.CENTER,
-                                spacing=8,
-                            ),
-                        ],
-                        horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-                        alignment=ft.MainAxisAlignment.CENTER,
-                        spacing=0,
-                        expand=True,
-                    ),
-                    # Mirrors the top bar's height so the content sits in the true centre.
-                    ft.Container(height=24),
-                ],
-                expand=True,
-            ),
-            maximizable=False,
+        ft.Stack(
+            [
+                ft.WindowDragArea(ft.Container(), maximizable=False, expand=True),
+                ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                # As wide as the window buttons so the mode toggle sits centred.
+                                ft.Container(
+                                    window_button(ft.Icons.SETTINGS, "Settings", on_settings),
+                                    width=52,
+                                    alignment=ft.Alignment.CENTER_LEFT,
+                                ),
+                                mode,
+                                ft.Row(
+                                    [
+                                        window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
+                                        window_button(ft.Icons.CLOSE, "Close", on_close),
+                                    ],
+                                    spacing=0,
+                                ),
+                            ],
+                            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                            vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        ),
+                        ft.Column(
+                            [
+                                ft.Column(
+                                    [label, time_display, time_field],
+                                    horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                                    spacing=0,
+                                ),
+                                ft.Row(
+                                    [
+                                        start_pause,
+                                        ft.OutlinedButton("Reset", width=104, on_click=on_reset),
+                                    ],
+                                    alignment=ft.MainAxisAlignment.CENTER,
+                                    spacing=8,
+                                ),
+                            ],
+                            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+                            alignment=ft.MainAxisAlignment.CENTER,
+                            spacing=0,
+                            expand=True,
+                        ),
+                        # Mirrors the top bar's height so the content sits in the true centre.
+                        ft.Container(height=24),
+                    ],
+                    expand=True,
+                ),
+            ],
             expand=True,
         )
     )
