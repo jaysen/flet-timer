@@ -3,7 +3,13 @@ from pathlib import Path
 
 import pytest
 
-from flet_timer.log import EventLog, format_date, log_filename, template_error
+from flet_timer.log import (
+    EventLog,
+    format_date,
+    format_time,
+    log_filename,
+    template_error,
+)
 from flet_timer.timer import Countdown, Stopwatch
 
 
@@ -108,6 +114,33 @@ def test_creates_folder_and_appends_per_day(tmp_path: Path, clock: FakeClock) ->
 )
 def test_format_date(date_format: str, expected: str) -> None:
     assert format_date(date_format, date(2026, 10, 21)) == expected
+
+
+@pytest.mark.parametrize(
+    ("time_format", "hour", "expected"),
+    [
+        ("HH:mm:ss", 14, "14:05:09"),
+        ("HH:mm", 9, "09:05"),
+        ("hh:mm AM", 14, "02:05 PM"),
+        ("hh:mm AM", 0, "12:05 AM"),
+        ("HHmm", 14, "1405"),
+    ],
+)
+def test_format_time(time_format: str, hour: int, expected: str) -> None:
+    assert format_time(time_format, datetime(2026, 10, 21, hour, 5, 9)) == expected
+
+
+def test_time_format_in_line(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        time_format="hh:mm AM",
+        line_format="{time} {event}",
+        now=lambda: datetime(2026, 10, 21, 14, 5, 9),
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["02:05 PM start"]
 
 
 @pytest.mark.parametrize(

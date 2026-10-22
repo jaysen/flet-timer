@@ -59,7 +59,8 @@ The file name defaults to `2026-10-21.log`. To change it, e.g. to `flet-20261021
 [log]
 file = "flet-{date}.md"
 date_format = "YYYYMMDD"   # YYYY, YY, MM and DD are replaced
-line_format = " - {time} - {mode} {event} {display}"
+time_format = "HH:mm"      # HH, hh (12-hour), mm, ss and AM (AM/PM) are replaced
+line_format = "- {time} {mode} {event} {display}"
 ```
 
 `line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`

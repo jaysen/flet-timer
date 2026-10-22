@@ -15,6 +15,7 @@ from flet_timer.log import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_FILE,
     DEFAULT_LINE_FORMAT,
+    DEFAULT_TIME_FORMAT,
     FILE_PLACEHOLDERS,
     LINE_PLACEHOLDERS,
     template_error,
@@ -38,6 +39,7 @@ class Config:
     log_folder: Path = field(default_factory=default_log_folder)
     log_file: str = DEFAULT_FILE
     log_date_format: str = DEFAULT_DATE_FORMAT
+    log_time_format: str = DEFAULT_TIME_FORMAT
     log_line_format: str = DEFAULT_LINE_FORMAT
 
     @property
@@ -87,6 +89,10 @@ def load_config(path: Path | None = None) -> Config:
     if not _is_filename(date_format):
         raise ConfigError(f"{path}: log.date_format must be a non-empty string, without / or \\")
 
+    time_format = log.get("time_format", DEFAULT_TIME_FORMAT)
+    if not isinstance(time_format, str) or not time_format:
+        raise ConfigError(f"{path}: log.time_format must be a non-empty string")
+
     line_format = log.get("line_format", DEFAULT_LINE_FORMAT)
     if not isinstance(line_format, str):
         raise ConfigError(f"{path}: log.line_format must be a string")
@@ -97,6 +103,7 @@ def load_config(path: Path | None = None) -> Config:
         log_folder=log_folder,
         log_file=file,
         log_date_format=date_format,
+        log_time_format=time_format,
         log_line_format=line_format,
     )
 
