@@ -42,7 +42,7 @@ def open_settings(
 
     fields: dict[str, ft.TextField] = {}
     clear_buttons: dict[str, ft.IconButton] = {}
-    banner_text = ft.Text(problem, size=12, color=ft.Colors.ON_ERROR_CONTAINER)
+    banner_text = ft.Text(problem, size=11, color=ft.Colors.ON_ERROR_CONTAINER)
     banner = ft.Container(
         ft.Row([ft.Icon(ft.Icons.ERROR_OUTLINE, size=16, color=ft.Colors.ERROR), banner_text]),
         bgcolor=ft.Colors.ERROR_CONTAINER,
@@ -74,7 +74,7 @@ def open_settings(
         key = setting.key
         clear_buttons[key] = ft.IconButton(
             ft.Icons.CLOSE,
-            icon_size=16,
+            icon_size=14,
             tooltip="Use the default",
             on_click=lambda _: clear_field(key),
             style=ft.ButtonStyle(padding=0),
@@ -90,8 +90,8 @@ def open_settings(
             tooltip=f"Default: {setting.default}\n{setting.help}",
             error_max_lines=3,
             dense=True,
-            text_size=13,
-            border_radius=8,
+            text_size=11,
+            border=ft.OutlineInputBorder(border_radius=8),
             suffix=clear_buttons[key],
             on_change=on_change,
         )
@@ -168,7 +168,7 @@ def open_settings(
                 ft.TextButton("Cancel", on_click=on_cancel),
                 ft.FilledButton("Save", on_click=on_save),
             ],
-            spacing=8,
+            spacing=6,
             tight=True,
         ),
     ]
