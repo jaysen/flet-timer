@@ -9,9 +9,10 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 - **Start / pause / resume / reset flow** with elapsed/display time tracking.
 - **Compact view toggle** for a minimal always-visible timer window.
 - **Editable label** per session, used in log output.
+- **Named profiles**, each with its own log file, line format and countdown default.
 - **Configurable settings file** for defaults and logging behavior.
 - **Daily log files** with templated file names and line formats.
-- **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, and `{label}`.
+- **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}` and `{profile}`.
 
 
 ## Setup
@@ -85,9 +86,33 @@ line_format = "- {time} {mode} {event} {display}"
 ```
 
 `line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`
-(what the timer showed, so time left for a countdown) and `{label}` (the label typed in
-the app, or the mode if none). `file` can use `{date}` and `{label}`. See
-[config.example.toml](config.example.toml) for details.
+(what the timer showed, so time left for a countdown), `{label}` (the label typed in
+the app, or the mode if none) and `{profile}`. `file` can use `{date}`, `{label}` and
+`{profile}`. See [config.example.toml](config.example.toml) for details.
+
+## Profiles
+
+A profile is a named set of log settings, e.g. one for your journal and one for a work
+timesheet. The label stays separate, so any label can be logged under any profile.
+`[timer]` and `[log]` make up the `default` profile. Each `[profiles.<name>]` table
+overrides any of their keys and takes the rest from them:
+
+```toml
+[profiles.work]
+default_minutes = 50
+folder = "~/work/timesheets"
+file = "timesheet-{date}.csv"
+line_format = "{date},{time},{label},{event},{elapsed}"
+```
+
+Once the config has a profile, a picker appears at the bottom of the window. It is
+locked while a timer runs or is paused, so a session stays in one log. Switching changes
+where the next events go, and an untouched countdown takes the profile's default minutes.
+The app reopens on the profile picked last, which it remembers in
+`~/.local/state/tokolog-flet/state.json`.
+
+Profiles can also be added, edited and deleted in the settings popup. Pick one at the
+top. A blank field takes the default profile's value, shown as the hint.
 
 ## Check
 
