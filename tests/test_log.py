@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 
 import pytest
 
-from flet_timer.log import EventLog
+from flet_timer.log import EventLog, format_date, log_filename, template_error
 from flet_timer.timer import Countdown, Stopwatch
 
 
@@ -96,3 +96,89 @@ def test_creates_folder_and_appends_per_day(tmp_path: Path, clock: FakeClock) ->
     log.update("stopwatch", s)
     assert (folder / "2026-10-21.log").read_text().startswith("23:59:00  stopwatch  start")
     assert (folder / "2026-10-22.log").read_text().startswith("00:01:00  stopwatch  pause")
+
+
+@pytest.mark.parametrize(
+    ("date_format", "expected"),
+    [
+        ("YYYY-MM-DD", "2026-10-21"),
+        ("YYYYMMDD", "20261021"),
+        ("DD.MM.YY", "21.10.26"),
+    ],
+)
+def test_format_date(date_format: str, expected: str) -> None:
+    assert format_date(date_format, date(2026, 10, 21)) == expected
+
+
+@pytest.mark.parametrize(
+    ("file", "expected"),
+    [
+        ("{date}.log", "2026-10-21.log"),
+        ("flet-{date}.md", "flet-2026-10-21.md"),
+        ("SUMMARY-{date}", "SUMMARY-2026-10-21"),  # only {date} is replaced
+        ("timer.md", "timer.md"),
+    ],
+)
+def test_log_filename(file: str, expected: str) -> None:
+    assert log_filename(file, "YYYY-MM-DD", date(2026, 10, 21)) == expected
+
+
+@pytest.mark.parametrize(
+    ("template", "error"),
+    [
+        ("{date}-{mode:<9} {{literal}}", None),
+        ("{dat}", "unknown placeholder {dat}"),
+        ("{}", "empty placeholder {}"),
+        ("{date", "expected '}' before end of string"),
+    ],
+)
+def test_template_error(template: str, error: str | None) -> None:
+    assert template_error(template, ("date", "mode")) == error
+
+
+def test_writes_to_configured_file_name(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path, "flet-{date}.md", "YYYYMMDD", now=lambda: datetime(2026, 10, 21, 9, 30, 5)
+    )
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert (tmp_path / "flet-20261021.md").read_text() == "09:30:05  stopwatch  start   00:00\n"
+
+
+def test_appends_to_existing_file(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "2026-10-21.log").write_text("# Notes\n")
+    log = make_log(tmp_path)
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["# Notes", "09:30:05  stopwatch  start   00:00"]
+
+
+def test_starts_new_line_if_file_lacks_trailing_newline(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "2026-10-21.log").write_text("# Notes")
+    log = make_log(tmp_path)
+    s = Stopwatch(clock)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["# Notes", "09:30:05  stopwatch  start   00:00"]
+
+
+def test_line_format(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format=" - {date} {time} - {mode} {event} {elapsed} ({display})",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+    )
+    c = Countdown(300, clock)
+    c.start()
+    log.update("countdown", c)
+    clock.now = 65
+    log.update("countdown", c)  # as the UI does just before acting
+    c.reset()
+    log.update("countdown", c)
+    assert lines(tmp_path) == [
+        " - 2026-10-21 09:30:05 - countdown start 00:00 (05:00)",
+        # a stop reports the time reached, not the reset values
+        " - 2026-10-21 09:30:05 - countdown stop 01:05 (03:55)",
+    ]

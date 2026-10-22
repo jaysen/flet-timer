@@ -11,6 +11,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from flet_timer.log import (
+    DEFAULT_DATE_FORMAT,
+    DEFAULT_FILE,
+    DEFAULT_LINE_FORMAT,
+    FILE_PLACEHOLDERS,
+    LINE_PLACEHOLDERS,
+    template_error,
+)
+
 DEFAULT_MINUTES = 5
 
 
@@ -27,6 +36,9 @@ def default_log_folder() -> Path:
 class Config:
     default_minutes: float = DEFAULT_MINUTES
     log_folder: Path = field(default_factory=default_log_folder)
+    log_file: str = DEFAULT_FILE
+    log_date_format: str = DEFAULT_DATE_FORMAT
+    log_line_format: str = DEFAULT_LINE_FORMAT
 
     @property
     def default_seconds(self) -> float:
@@ -65,7 +77,38 @@ def load_config(path: Path | None = None) -> Config:
         log_folder = path.parent / Path(folder).expanduser()
     else:
         raise ConfigError(f"{path}: log.folder must be a non-empty string")
-    return Config(default_minutes=minutes, log_folder=log_folder)
+
+    file = log.get("file", DEFAULT_FILE)
+    if not _is_filename(file):
+        raise ConfigError(f"{path}: log.file must be a non-empty file name, without folders")
+    _check_template(file, "log.file", FILE_PLACEHOLDERS, path)
+    # The date ends up in the file name, so it follows the same rules.
+    date_format = log.get("date_format", DEFAULT_DATE_FORMAT)
+    if not _is_filename(date_format):
+        raise ConfigError(f"{path}: log.date_format must be a non-empty string, without / or \\")
+
+    line_format = log.get("line_format", DEFAULT_LINE_FORMAT)
+    if not isinstance(line_format, str):
+        raise ConfigError(f"{path}: log.line_format must be a string")
+    _check_template(line_format, "log.line_format", LINE_PLACEHOLDERS, path)
+
+    return Config(
+        default_minutes=minutes,
+        log_folder=log_folder,
+        log_file=file,
+        log_date_format=date_format,
+        log_line_format=line_format,
+    )
+
+
+def _check_template(template: str, key: str, placeholders: tuple[str, ...], path: Path) -> None:
+    if error := template_error(template, placeholders):
+        known = ", ".join(f"{{{name}}}" for name in placeholders)
+        raise ConfigError(f"{path}: {key}: {error} (available: {known})")
+
+
+def _is_filename(value: object) -> bool:
+    return isinstance(value, str) and bool(value) and not any(c in value for c in "/\\")
 
 
 def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:

@@ -6,6 +6,17 @@
 default_minutes = 25
 
 [log]
-# Folder for the daily activity logs (YYYY-MM-DD.log). "~" is expanded and relative
+# Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/flet-timer/log
 # folder = "~/.local/share/flet-timer/log"
+
+# File name, including extension. {date} is replaced using date_format; a name
+# without it puts everything in one file.
+# file = "{date}.log"
+# YYYY, YY, MM and DD are replaced, e.g. "YYYYMMDD" -> 20261021.
+# date_format = "YYYY-MM-DD"
+# One line per event. Placeholders: {date} {time} {mode} {event} {elapsed} {display}
+#   event:   start, pause, resume, stop or finish
+#   elapsed: time run so far; display: what the timer showed (countdown: time left)
+# Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
+# line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"

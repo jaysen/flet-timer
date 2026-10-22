@@ -51,7 +51,20 @@ Every start, pause, resume, stop and finish is appended to a file per day in the
 09:55:05  countdown  finish  25:00
 ```
 
-The last column is the time on the clock when the event happened.
+The last column is how much time had run when the event happened.
+
+The file name defaults to `2026-10-21.log`. To change it, e.g. to `flet-20261021.md`:
+
+```toml
+[log]
+file = "flet-{date}.md"
+date_format = "YYYYMMDD"   # YYYY, YY, MM and DD are replaced
+line_format = " - {time} - {mode} {event} {display}"
+```
+
+`line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}` and `{display}`
+(what the timer showed, so time left for a countdown). See
+[config.example.toml](config.example.toml) for details.
 
 ## Check
 
