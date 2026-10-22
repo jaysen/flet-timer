@@ -6,14 +6,19 @@ from pathlib import Path
 import flet as ft
 
 from tokolog_flet.config import (
+    DEFAULT_PROFILE,
     SETTINGS,
     Config,
     ConfigError,
     Setting,
+    add_profile,
     apply_settings,
     parse_config,
+    profile_names,
     read_settings,
+    remove_profile,
     save_settings,
+    setting_key,
     setting_text,
 )
 
@@ -22,7 +27,7 @@ WINDOW_SIZE = (440, 620)
 DIALOG_WIDTH = 360
 SECTIONS = {"timer": ("Timer", ft.Icons.TIMER_OUTLINED), "log": ("Log", ft.Icons.NOTES)}
 # Templates are easier to read, and their spacing easier to see, in a fixed-width font.
-MONOSPACE = {"log.file", "log.date_format", "log.time_format", "log.line_format"}
+MONOSPACE = {"file", "date_format", "time_format", "line_format"}
 NUMBER = ft.InputFilter(regex_string=r"^\d*\.?\d*$")
 
 
@@ -31,7 +36,9 @@ def open_settings(
     path: Path,
     on_saved: Callable[[Config], None],
     on_closed: Callable[[], None],
+    profile: str = DEFAULT_PROFILE,
 ) -> None:
+    """Edit ``path``, starting on ``profile``; edits to every profile are saved together."""
     try:
         data = read_settings(path)
     except ConfigError as e:
@@ -70,12 +77,47 @@ def open_settings(
         sync_clear_button(key)
         page.update()
 
+    selected = profile if profile in profile_names(data) else DEFAULT_PROFILE
+
+    def inherited(setting: Setting) -> str:
+        """What a blank field means: the built-in default, or the default profile's value."""
+        if selected == DEFAULT_PROFILE:
+            return setting.default
+        return setting_text(data, setting) or setting.default
+
+    def load_fields() -> None:
+        named = selected != DEFAULT_PROFILE
+        for setting in SETTINGS:
+            field = fields[setting.name]
+            hint = inherited(setting)
+            field.value = setting_text(data, setting, selected)
+            field.hint_text = hint
+            # The label covers the hint until the field is focused, so the tooltip says it too.
+            field.tooltip = f"{'From default' if named else 'Default'}: {hint}\n{setting.help}"
+            field.error = None
+            clear_buttons[setting.name].tooltip = (
+                "Use the default profile's value" if named else "Use the default"
+            )
+            sync_clear_button(setting.name)
+
+    def store_fields() -> bool:
+        """Keep what the fields say in ``data``; False, with the error shown, if unusable."""
+        nonlocal data
+        try:
+            data = apply_settings(data, field_values(), selected)
+        except ConfigError as e:
+            show_error(str(e))
+            return False
+        return True
+
+    def field_values() -> dict[str, str]:
+        return {key: field.value or "" for key, field in fields.items()}
+
     def make_field(setting: Setting) -> ft.TextField:
-        key = setting.key
+        key = setting.name
         clear_buttons[key] = ft.IconButton(
             ft.Icons.CLOSE,
             icon_size=14,
-            tooltip="Use the default",
             on_click=lambda _: clear_field(key),
             style=ft.ButtonStyle(padding=0),
             width=24,
@@ -83,11 +125,7 @@ def open_settings(
         )
         field = ft.TextField(
             label=setting.label,
-            value=setting_text(data, setting),
-            hint_text=setting.default,
             hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
-            # The label covers the hint until the field is focused, so the tooltip says it too.
-            tooltip=f"Default: {setting.default}\n{setting.help}",
             error_max_lines=3,
             dense=True,
             text_size=11,
@@ -97,11 +135,10 @@ def open_settings(
         )
         if key in MONOSPACE:
             field.text_style = ft.TextStyle(font_family="monospace")
-        if key == "timer.default_minutes":
+        if key == "default_minutes":
             field.input_filter = NUMBER
             field.keyboard_type = ft.KeyboardType.NUMBER
         fields[key] = field
-        sync_clear_button(key)
         return field
 
     def section(name: str) -> list[ft.Control]:
@@ -113,16 +150,110 @@ def open_settings(
             ],
             spacing=6,
         )
-        return [heading, *(make_field(s) for s in SETTINGS if s.section == name)]
+        return [heading, *(make_field(s) for s in SETTINGS if s.group == name)]
+
+    profile_picker = ft.Dropdown(
+        label="Profile",
+        dense=True,
+        text_size=12,
+        expand=True,
+        border=ft.OutlineInputBorder(border_radius=8),
+        tooltip="Which profile the fields below set",
+    )
+    delete_button = ft.IconButton(
+        ft.Icons.DELETE_OUTLINE, icon_size=18, tooltip="Delete this profile"
+    )
+    new_name = ft.TextField(
+        label="New profile name",
+        dense=True,
+        text_size=12,
+        expand=True,
+        border=ft.OutlineInputBorder(border_radius=8),
+    )
+    new_row = ft.Row(
+        [
+            new_name,
+            ft.IconButton(ft.Icons.CHECK, icon_size=18, tooltip="Add", on_click=lambda _: add()),
+            ft.IconButton(
+                ft.Icons.CLOSE, icon_size=18, tooltip="Cancel", on_click=lambda _: hide_new()
+            ),
+        ],
+        spacing=0,
+        visible=False,
+    )
+    inherit_note = ft.Text(
+        "Blank fields use the default profile's value.", size=11, color=ft.Colors.OUTLINE
+    )
+
+    def sync_profiles() -> None:
+        profile_picker.options = [
+            ft.DropdownOption(key=name, text=name)
+            for name in [DEFAULT_PROFILE, *profile_names(data)]
+        ]
+        profile_picker.value = selected
+        delete_button.visible = inherit_note.visible = selected != DEFAULT_PROFILE
+
+    def select(name: str) -> None:
+        nonlocal selected
+        selected = name
+        sync_profiles()
+        load_fields()
+        show_banner("")
+
+    def on_profile_select(_: ft.Event[ft.Dropdown]) -> None:
+        if store_fields():
+            select(profile_picker.value or DEFAULT_PROFILE)
+        else:
+            profile_picker.value = selected
+        page.update()
+
+    async def on_new(_: ft.Event[ft.IconButton]) -> None:
+        new_name.value = ""
+        new_name.error = None
+        new_row.visible = True
+        page.update()
+        await new_name.focus()
+
+    def hide_new() -> None:
+        new_row.visible = False
+        page.update()
+
+    def add() -> None:
+        nonlocal data
+        if not store_fields():
+            page.update()
+            return
+        try:
+            data = add_profile(data, new_name.value or "")
+        except ConfigError as e:
+            new_name.error = str(e)
+            page.update()
+            return
+        new_row.visible = False
+        select((new_name.value or "").strip())
+        page.update()
+
+    def on_delete(_: ft.Event[ft.IconButton]) -> None:
+        # Nothing is written until Save, so Cancel brings the profile back.
+        nonlocal data
+        data = remove_profile(data, selected)
+        select(DEFAULT_PROFILE)
+        page.update()
+
+    new_button = ft.IconButton(ft.Icons.ADD, icon_size=18, tooltip="New profile", on_click=on_new)
+    profile_picker.on_select = on_profile_select
+    delete_button.on_click = on_delete
+    new_name.on_submit = lambda _: add()
 
     def on_save(_: ft.Event[ft.Button]) -> None:
-        values = {key: field.value or "" for key, field in fields.items()}
+        if not store_fields():
+            page.update()
+            return
         try:
-            new = apply_settings(data, values)
-            config = parse_config(new, path)
-            save_settings(path, new)
+            config = parse_config(data, path)
+            save_settings(path, data)
         except ConfigError as e:
-            show_error(_without_path(str(e), path))
+            show_error(str(e))
             return
         except OSError as e:
             show_banner(f"Could not save: {e.strerror or e}")
@@ -132,17 +263,19 @@ def open_settings(
         on_saved(config)
 
     def show_error(message: str) -> None:
-        # Put the message under the field it is about, if there is one.
-        setting = next((s for s in SETTINGS if message.startswith(s.key)), None)
+        # Put the message under the field it is about, if it is on show.
+        message = _without_path(message, path)
+        setting = next((s for s in SETTINGS if _is_about(message, setting_key(s, selected))), None)
         if setting:
-            detail = message.removeprefix(setting.key).lstrip(": ")
-            fields[setting.key].error = detail[:1].upper() + detail[1:]
+            detail = message.removeprefix(setting_key(setting, selected)).lstrip(": ")
+            fields[setting.name].error = detail[:1].upper() + detail[1:]
             show_banner("")
         else:
             show_banner(message)
         page.update()
 
     def on_reset_all(_: ft.Event[ft.TextButton]) -> None:
+        # Only the profile on show; the others keep what they set.
         for key, field in fields.items():
             field.value = ""
             field.error = None
@@ -172,6 +305,35 @@ def open_settings(
             tight=True,
         ),
     ]
+    content = ft.Column(
+        [
+            path_row,
+            # Room on the right so the scrollbar doesn't sit on the fields.
+            ft.Container(
+                ft.Column(
+                    [
+                        ft.Row([profile_picker, new_button, delete_button], spacing=0),
+                        new_row,
+                        inherit_note,
+                        *section("timer"),
+                        ft.Container(height=4),
+                        *section("log"),
+                        banner,
+                    ],
+                    spacing=12,
+                    horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
+                ),
+                padding=ft.Padding.only(right=14),
+            ),
+        ],
+        width=DIALOG_WIDTH,
+        scroll=ft.ScrollMode.AUTO,
+        spacing=12,
+        tight=True,
+    )
+    # The fields only exist once section() has built them.
+    sync_profiles()
+    load_fields()
     page.show_dialog(
         ft.AlertDialog(
             modal=True,
@@ -179,29 +341,7 @@ def open_settings(
                 [ft.Icon(ft.Icons.SETTINGS_OUTLINED), ft.Text("Settings", size=19)],
                 spacing=10,
             ),
-            content=ft.Column(
-                [
-                    path_row,
-                    # Room on the right so the scrollbar doesn't sit on the fields.
-                    ft.Container(
-                        ft.Column(
-                            [
-                                *section("timer"),
-                                ft.Container(height=4),
-                                *section("log"),
-                                banner,
-                            ],
-                            spacing=12,
-                            horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
-                        ),
-                        padding=ft.Padding.only(right=14),
-                    ),
-                ],
-                width=DIALOG_WIDTH,
-                scroll=ft.ScrollMode.AUTO,
-                spacing=12,
-                tight=True,
-            ),
+            content=content,
             actions=actions,
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
             content_padding=ft.Padding.only(left=24, right=24, top=20, bottom=0),
@@ -210,6 +350,11 @@ def open_settings(
             on_dismiss=lambda _: on_closed(),
         )
     )
+
+
+def _is_about(message: str, key: str) -> bool:
+    """Whether ``message`` starts with ``key`` itself, not a longer key it prefixes."""
+    return message.startswith(key) and message[len(key) : len(key) + 1] in (" ", ":")
 
 
 def _without_path(message: str, path: Path) -> str:

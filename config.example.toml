@@ -1,17 +1,21 @@
 # tokolog-flet settings. Copy to ~/.config/tokolog-flet/config.toml and edit.
 # Every setting is optional; the values shown are the defaults.
 
-[timer]
+# Every profile is a [profiles.<name>] table with the same keys. [profiles.default]
+# is the base: the app uses it until another profile is picked, and the others take
+# whatever they leave out from it.
+
+[profiles.default]
 # Countdown start time in minutes (fractions allowed, e.g. 1.5).
 default_minutes = 25
 
-[log]
 # Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/tokolog-flet/log
 # folder = "~/.local/share/tokolog-flet/log"
 
-# File name, including extension. {date} is replaced using date_format and {label}
-# with the label typed in the app. A name without {date} puts every day in one file.
+# File name, including extension. {date} is replaced using date_format, {label}
+# with the label typed in the app and {profile} with the profile's name.
+# A name without {date} puts every day in one file.
 # file = "{date}.log"
 # YYYY, YY, MM and DD are replaced, e.g. "YYYYMMDD" -> 20261021.
 # date_format = "YYYY-MM-DD"
@@ -19,9 +23,18 @@ default_minutes = 25
 # (AM or PM) are replaced, e.g. "hh:mm AM" -> 02:05 PM.
 # time_format = "HH:mm:ss"
 # One line per event.
-# Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label}
+# Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label} {profile}
 #   event:   start, pause, resume, stop or finish
 #   elapsed: time run so far; display: what the timer showed (countdown: time left)
 #   label:   the label typed in the app, or the mode if none
+#   profile: the profile picked in the app ("default" if none)
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
+
+# More profiles, picked at the bottom of the window. Set only what differs from
+# [profiles.default].
+# [profiles.work]
+# default_minutes = 50
+# folder = "~/work/timesheets"
+# file = "timesheet-{date}.csv"
+# line_format = "{date},{time},{label},{event},{elapsed}"

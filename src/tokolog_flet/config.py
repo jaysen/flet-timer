@@ -36,7 +36,9 @@ def default_log_folder() -> Path:
 
 
 @dataclass(frozen=True)
-class Config:
+class Profile:
+    """Timer default and log settings: what a profile can set."""
+
     default_minutes: float = DEFAULT_MINUTES
     log_folder: Path = field(default_factory=default_log_folder)
     log_file: str = DEFAULT_FILE
@@ -47,6 +49,20 @@ class Config:
     @property
     def default_seconds(self) -> float:
         return self.default_minutes * 60
+
+
+DEFAULT_PROFILE = "default"
+
+
+@dataclass(frozen=True)
+class Config(Profile):
+    """The default profile (``[profiles.default]``) plus the named ones."""
+
+    profiles: dict[str, Profile] = field(default_factory=dict, hash=False)
+
+    def profile(self, name: str) -> Profile:
+        """The named profile; the default one for ``default`` or a name not in the file."""
+        return self.profiles.get(name, self)
 
 
 def config_path() -> Path:
@@ -74,41 +90,62 @@ def load_config(path: Path | None = None) -> Config:
 
 def parse_config(data: dict[str, Any], path: Path) -> Config:
     """Validate raw settings; ``path`` is only used for messages and relative folders."""
-    timer = _section(data, "timer", path)
-    minutes = timer.get("default_minutes", DEFAULT_MINUTES)
+    tables = _section(data, "profiles", path)
+    for name, table in tables.items():
+        # "Default" would read as the built-in profile while being a separate one.
+        if name != DEFAULT_PROFILE and name.strip().lower() == DEFAULT_PROFILE:
+            raise ConfigError(f"{path}: profiles.{name}: the default profile is [profiles.default]")
+        if not isinstance(table, dict):
+            raise ConfigError(f"{path}: [profiles.{name}] must be a table")
+
+    default = _parse_profile(tables.get(DEFAULT_PROFILE, {}), Profile(), DEFAULT_PROFILE, path)
+    # The others override the default profile, not the built-in values.
+    profiles = {
+        name: _parse_profile(table, default, name, path)
+        for name, table in tables.items()
+        if name != DEFAULT_PROFILE
+    }
+    return Config(**vars(default), profiles=profiles)
+
+
+def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) -> Profile:
+    """``base`` with whatever ``table``, the profile called ``name``, sets."""
+    prefix = f"profiles.{name}."
+    minutes = table.get("default_minutes", base.default_minutes)
     # bool is an int subclass, so `true` would otherwise pass as 1 minute.
     if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes <= 0:
-        raise ConfigError(f"{path}: timer.default_minutes must be a positive number")
+        raise ConfigError(f"{path}: {prefix}default_minutes must be a positive number")
 
-    log = _section(data, "log", path)
-    folder = log.get("folder")
+    folder = table.get("folder")
     if folder is None:
-        log_folder = default_log_folder()
+        log_folder = base.log_folder
     elif isinstance(folder, str) and folder:
         # Relative paths are taken from the config file's folder, not wherever the app runs.
         log_folder = path.parent / Path(folder).expanduser()
     else:
-        raise ConfigError(f"{path}: log.folder must be a non-empty string")
+        raise ConfigError(f"{path}: {prefix}folder must be a non-empty string")
 
-    file = log.get("file", DEFAULT_FILE)
+    file = table.get("file", base.log_file)
     if not _is_filename(file):
-        raise ConfigError(f"{path}: log.file must be a non-empty file name, without folders")
-    _check_template(file, "log.file", FILE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {prefix}file must be a non-empty file name, without folders")
+    _check_template(file, f"{prefix}file", FILE_PLACEHOLDERS, path)
     # The date ends up in the file name, so it follows the same rules.
-    date_format = log.get("date_format", DEFAULT_DATE_FORMAT)
+    date_format = table.get("date_format", base.log_date_format)
     if not _is_filename(date_format):
-        raise ConfigError(f"{path}: log.date_format must be a non-empty string, without / or \\")
+        raise ConfigError(
+            f"{path}: {prefix}date_format must be a non-empty string, without / or \\"
+        )
 
-    time_format = log.get("time_format", DEFAULT_TIME_FORMAT)
+    time_format = table.get("time_format", base.log_time_format)
     if not isinstance(time_format, str) or not time_format:
-        raise ConfigError(f"{path}: log.time_format must be a non-empty string")
+        raise ConfigError(f"{path}: {prefix}time_format must be a non-empty string")
 
-    line_format = log.get("line_format", DEFAULT_LINE_FORMAT)
+    line_format = table.get("line_format", base.log_line_format)
     if not isinstance(line_format, str):
-        raise ConfigError(f"{path}: log.line_format must be a string")
-    _check_template(line_format, "log.line_format", LINE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {prefix}line_format must be a string")
+    _check_template(line_format, f"{prefix}line_format", LINE_PLACEHOLDERS, path)
 
-    return Config(
+    return Profile(
         default_minutes=minutes,
         log_folder=log_folder,
         log_file=file,
@@ -137,15 +174,12 @@ def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class Setting:
-    section: str
+    # Only for grouping in the settings popup; every setting sits in its profile's table.
+    group: str
     name: str
     label: str
     default: str
     help: str
-
-    @property
-    def key(self) -> str:
-        return f"{self.section}.{self.name}"
 
 
 def _setting_defaults() -> list[Setting]:
@@ -165,7 +199,13 @@ def _setting_defaults() -> list[Setting]:
             _tilde(config.log_folder),
             "~ is expanded; relative paths start at the config file's folder",
         ),
-        Setting("log", "file", "File name", config.log_file, "{date} and {label} are replaced"),
+        Setting(
+            "log",
+            "file",
+            "File name",
+            config.log_file,
+            "{date}, {label} and {profile} are replaced",
+        ),
         Setting(
             "log",
             "date_format",
@@ -185,7 +225,7 @@ def _setting_defaults() -> list[Setting]:
             "line_format",
             "Line format",
             config.log_line_format,
-            "{date} {time} {mode} {event} {elapsed} {display} {label}",
+            "{date} {time} {mode} {event} {elapsed} {display} {label} {profile}",
         ),
     ]
 
@@ -200,32 +240,72 @@ def _tilde(path: Path) -> str:
 SETTINGS = _setting_defaults()
 
 
-def setting_text(data: dict[str, Any], setting: Setting) -> str:
+def setting_key(setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
+    """Where ``setting`` lives for ``profile``, as config messages name it."""
+    return f"profiles.{profile}.{setting.name}"
+
+
+def profile_names(data: dict[str, Any]) -> list[str]:
+    """The named profiles in raw settings, in file order, without the default one."""
+    profiles = data.get("profiles")
+    return [n for n in profiles if n != DEFAULT_PROFILE] if isinstance(profiles, dict) else []
+
+
+def setting_text(data: dict[str, Any], setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
     """What the file sets for ``setting`` as editable text; empty if it is not set."""
-    value = data.get(setting.section, {})
-    value = value.get(setting.name) if isinstance(value, dict) else None
+    profiles = data.get("profiles")
+    table = profiles.get(profile) if isinstance(profiles, dict) else None
+    value = table.get(setting.name) if isinstance(table, dict) else None
     return "" if value is None else str(value)
 
 
-def apply_settings(data: dict[str, Any], values: dict[str, str]) -> dict[str, Any]:
-    """Copy of ``data`` with each setting in ``values`` (by key) set, or removed if blank.
+def apply_settings(
+    data: dict[str, Any], values: dict[str, str], profile: str = DEFAULT_PROFILE
+) -> dict[str, Any]:
+    """Copy of ``data`` with each setting in ``values`` (by name) set, or removed if blank.
 
+    A named profile's table is kept even when empty: an empty profile is still one.
     Text is kept as typed: spaces can matter, e.g. at the start of a line format.
     Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
     """
-    result = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
+    profiles = data.get("profiles", {})
+    if not isinstance(profiles, dict):
+        raise ConfigError("[profiles] must be a table")
+    table = profiles.get(profile, {})
+    if not isinstance(table, dict):
+        raise ConfigError(f"[profiles.{profile}] must be a table")
+    table = dict(table)
     for setting in SETTINGS:
-        text = values.get(setting.key, "")
-        section = result.setdefault(setting.section, {})
-        if not isinstance(section, dict):
-            raise ConfigError(f"[{setting.section}] must be a table")
+        text = values.get(setting.name, "")
         if not text.strip():
-            section.pop(setting.name, None)
-        elif setting.key == "timer.default_minutes":
-            section[setting.name] = _number(text.strip(), setting.key)
+            table.pop(setting.name, None)
+        elif setting.name == "default_minutes":
+            table[setting.name] = _number(text.strip(), setting_key(setting, profile))
         else:
-            section[setting.name] = text
-    return {k: v for k, v in result.items() if v != {}}
+            table[setting.name] = text
+    profiles = {**profiles, profile: table}
+    if profile == DEFAULT_PROFILE and not table:
+        del profiles[profile]
+    result = {k: v for k, v in data.items() if k != "profiles"}
+    return {**result, "profiles": profiles} if profiles else result
+
+
+def add_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Copy of ``data`` with an empty profile called ``name``, which must be new."""
+    name = name.strip()
+    if not name:
+        raise ConfigError("A profile needs a name")
+    if name.lower() == DEFAULT_PROFILE or name in profile_names(data):
+        raise ConfigError(f"There is already a profile called {name}")
+    profiles = data.get("profiles", {})
+    return {**data, "profiles": {**profiles, name: {}}}
+
+
+def remove_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Copy of ``data`` without the profile called ``name``."""
+    profiles = {k: v for k, v in data.get("profiles", {}).items() if k != name}
+    result = {k: v for k, v in data.items() if k != "profiles"}
+    return {**result, "profiles": profiles} if profiles else result
 
 
 def _number(text: str, key: str) -> int | float:
