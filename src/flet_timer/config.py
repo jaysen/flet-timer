@@ -5,9 +5,11 @@ The file lives at ``$XDG_CONFIG_HOME/flet-timer/config.toml`` (``~/.config`` if 
 It is optional: a missing file or missing keys fall back to the defaults below.
 """
 
+import json
 import os
 import tomllib
 from dataclasses import dataclass, field
+from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any
 
@@ -54,16 +56,24 @@ def config_path() -> Path:
     return Path(base) / "flet-timer" / "config.toml"
 
 
-def load_config(path: Path | None = None) -> Config:
-    path = path or config_path()
+def read_settings(path: Path) -> dict[str, Any]:
+    """The file's raw contents; empty if it does not exist."""
     try:
         with path.open("rb") as f:
-            data = tomllib.load(f)
+            return tomllib.load(f)
     except FileNotFoundError:
-        return Config()
+        return {}
     except tomllib.TOMLDecodeError as e:
         raise ConfigError(f"{path}: {e}") from e
 
+
+def load_config(path: Path | None = None) -> Config:
+    path = path or config_path()
+    return parse_config(read_settings(path), path)
+
+
+def parse_config(data: dict[str, Any], path: Path) -> Config:
+    """Validate raw settings; ``path`` is only used for messages and relative folders."""
     timer = _section(data, "timer", path)
     minutes = timer.get("default_minutes", DEFAULT_MINUTES)
     # bool is an int subclass, so `true` would otherwise pass as 1 minute.
@@ -123,3 +133,152 @@ def _section(data: dict[str, Any], name: str, path: Path) -> dict[str, Any]:
     if not isinstance(section, dict):
         raise ConfigError(f"{path}: [{name}] must be a table")
     return section
+
+
+@dataclass(frozen=True)
+class Setting:
+    section: str
+    name: str
+    label: str
+    default: str
+    help: str
+
+    @property
+    def key(self) -> str:
+        return f"{self.section}.{self.name}"
+
+
+def _setting_defaults() -> list[Setting]:
+    config = Config()
+    return [
+        Setting(
+            "timer",
+            "default_minutes",
+            "Default minutes",
+            f"{config.default_minutes:g}",
+            "Countdown start time; fractions allowed, e.g. 1.5",
+        ),
+        Setting(
+            "log",
+            "folder",
+            "Folder",
+            _tilde(config.log_folder),
+            "~ is expanded; relative paths start at the config file's folder",
+        ),
+        Setting("log", "file", "File name", config.log_file, "{date} and {label} are replaced"),
+        Setting(
+            "log",
+            "date_format",
+            "Date format",
+            config.log_date_format,
+            "YYYY, YY, MM and DD are replaced",
+        ),
+        Setting(
+            "log",
+            "time_format",
+            "Time format",
+            config.log_time_format,
+            "HH, hh (12-hour), mm, ss and AM are replaced",
+        ),
+        Setting(
+            "log",
+            "line_format",
+            "Line format",
+            config.log_line_format,
+            "{date} {time} {mode} {event} {elapsed} {display} {label}",
+        ),
+    ]
+
+
+def _tilde(path: Path) -> str:
+    try:
+        return str(Path("~") / path.relative_to(Path.home()))
+    except ValueError:
+        return str(path)
+
+
+SETTINGS = _setting_defaults()
+
+
+def setting_text(data: dict[str, Any], setting: Setting) -> str:
+    """What the file sets for ``setting`` as editable text; empty if it is not set."""
+    value = data.get(setting.section, {})
+    value = value.get(setting.name) if isinstance(value, dict) else None
+    return "" if value is None else str(value)
+
+
+def apply_settings(data: dict[str, Any], values: dict[str, str]) -> dict[str, Any]:
+    """Copy of ``data`` with each setting in ``values`` (by key) set, or removed if blank.
+
+    Text is kept as typed: spaces can matter, e.g. at the start of a line format.
+    Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
+    """
+    result = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
+    for setting in SETTINGS:
+        text = values.get(setting.key, "")
+        section = result.setdefault(setting.section, {})
+        if not isinstance(section, dict):
+            raise ConfigError(f"[{setting.section}] must be a table")
+        if not text.strip():
+            section.pop(setting.name, None)
+        elif setting.key == "timer.default_minutes":
+            section[setting.name] = _number(text.strip(), setting.key)
+        else:
+            section[setting.name] = text
+    return {k: v for k, v in result.items() if v != {}}
+
+
+def _number(text: str, key: str) -> int | float:
+    try:
+        number = float(text)
+    except ValueError:
+        raise ConfigError(f"{key} must be a positive number") from None
+    return int(number) if number.is_integer() else number
+
+
+def save_settings(path: Path, data: dict[str, Any]) -> None:
+    """Write ``data`` as TOML. Comments in an existing file are not kept."""
+    text = dumps_toml(data)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_name(path.name + ".tmp")
+    temp.write_text(text, encoding="utf-8")
+    temp.replace(path)
+
+
+def dumps_toml(data: dict[str, Any]) -> str:
+    lines: list[str] = []
+    _dump_table(data, "", lines)
+    return "\n".join(lines) + "\n" if lines else ""
+
+
+def _dump_table(table: dict[str, Any], prefix: str, lines: list[str]) -> None:
+    scalars = {k: v for k, v in table.items() if not isinstance(v, dict)}
+    tables = {k: v for k, v in table.items() if isinstance(v, dict)}
+    if prefix and (scalars or not tables):
+        lines += ["", f"[{prefix}]"]
+    for key, value in scalars.items():
+        lines.append(f"{_dump_key(key)} = {_dump_value(value)}")
+    for key, value in tables.items():
+        _dump_table(value, f"{prefix}.{_dump_key(key)}" if prefix else _dump_key(key), lines)
+
+
+def _dump_key(key: str) -> str:
+    return (
+        key
+        if key and all(c.isalnum() or c in "_-" for c in key)
+        else json.dumps(key, ensure_ascii=False)
+    )
+
+
+def _dump_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int | float):
+        return repr(value)
+    if isinstance(value, str):
+        return json.dumps(value, ensure_ascii=False)
+    if isinstance(value, list):
+        return "[" + ", ".join(_dump_value(v) for v in value) + "]"
+    if isinstance(value, datetime | date | time):
+        return value.isoformat()
+    raise ConfigError(f"cannot write a {type(value).__name__} value")

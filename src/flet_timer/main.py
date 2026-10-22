@@ -5,8 +5,9 @@ from functools import partial
 
 import flet as ft
 
-from flet_timer.config import Config, load_config
+from flet_timer.config import Config, config_path, load_config
 from flet_timer.log import EventLog
+from flet_timer.settings import WINDOW_SIZE, open_settings
 from flet_timer.timer import Countdown, State, Stopwatch, parse_duration
 
 TICK_SECONDS = 0.2
@@ -155,6 +156,37 @@ def main(page: ft.Page, config: Config) -> None:
         timer.reset()
         render()
 
+    def on_settings(_: ft.Event[ft.IconButton]) -> None:
+        finish_setting_time(apply=False)
+        size = page.window.width, page.window.height
+        page.window.width, page.window.height = WINDOW_SIZE
+
+        def restore_window() -> None:
+            page.window.width, page.window.height = size
+            page.update()
+
+        open_settings(page, config_path(), apply_config, restore_window)
+        page.update()
+
+    def apply_config(new: Config) -> None:
+        nonlocal config
+        countdown = timers[COUNTDOWN]
+        # Only an untouched countdown follows the new default; a set or running one keeps its time.
+        if (
+            isinstance(countdown, Countdown)
+            and countdown.state is State.IDLE
+            and countdown.duration == config.default_seconds
+        ):
+            countdown.duration = new.default_seconds
+        config = new
+        # Same log object, so a running timer isn't taken for a fresh start.
+        events.folder = new.log_folder
+        events.file = new.log_file
+        events.date_format = new.log_date_format
+        events.time_format = new.log_time_format
+        events.line_format = new.log_line_format
+        render()
+
     def on_minimize(_: ft.Event[ft.IconButton]) -> None:
         page.window.minimized = True
         page.update()
@@ -187,8 +219,12 @@ def main(page: ft.Page, config: Config) -> None:
                 [
                     ft.Row(
                         [
-                            # Balances the window buttons so the mode toggle sits centred.
-                            ft.Container(width=52),
+                            # As wide as the window buttons so the mode toggle sits centred.
+                            ft.Container(
+                                window_button(ft.Icons.SETTINGS, "Settings", on_settings),
+                                width=52,
+                                alignment=ft.Alignment.CENTER_LEFT,
+                            ),
                             mode,
                             ft.Row(
                                 [
