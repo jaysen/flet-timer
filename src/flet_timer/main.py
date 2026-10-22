@@ -17,11 +17,11 @@ SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
 STOPWATCH = "stopwatch"
 # Window and time sizes for the full and compact views.
 FULL_SIZE = (380, 260)
-COMPACT_SIZE = (240, 170)
+COMPACT_SIZE = (220, 170)
 FULL_TIME_SIZE = 72
-COMPACT_TIME_SIZE = 48
+COMPACT_TIME_SIZE = 42
 FULL_BUTTON_WIDTH = 104
-COMPACT_BUTTON_WIDTH = 80
+COMPACT_BUTTON_WIDTH = 76
 
 
 def main(page: ft.Page, config: Config) -> None:
@@ -215,10 +215,19 @@ def main(page: ft.Page, config: Config) -> None:
         size = COMPACT_TIME_SIZE if compact else FULL_TIME_SIZE
         display.size = time_field.text_size = size
         label.width = 200 if compact else 260
-        density = ft.VisualDensity.COMPACT if compact else None
+        style = (
+            ft.ButtonStyle(
+                visual_density=ft.VisualDensity.COMPACT,
+                text_style=ft.TextStyle(size=12),
+                padding=ft.Padding.symmetric(horizontal=8, vertical=0),
+            )
+            if compact
+            else None
+        )
         for button in (start_pause, reset):
             button.width = COMPACT_BUTTON_WIDTH if compact else FULL_BUTTON_WIDTH
-            button.style = ft.ButtonStyle(visual_density=density)
+            button.style = style
+        buttons.spacing = 4 if compact else 8
         compact_button.icon = ft.Icons.OPEN_IN_FULL if compact else ft.Icons.CLOSE_FULLSCREEN
         compact_button.tooltip = "Full view" if compact else "Compact view"
         page.update()
@@ -260,6 +269,7 @@ def main(page: ft.Page, config: Config) -> None:
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER,
     )
+    buttons = ft.Row([start_pause, reset], alignment=ft.MainAxisAlignment.CENTER, spacing=8)
     # Mirrors the top bar's height so the content sits in the true centre.
     bottom_spacer = ft.Container(height=24)
 
@@ -287,14 +297,7 @@ def main(page: ft.Page, config: Config) -> None:
                                     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                                     spacing=0,
                                 ),
-                                ft.Row(
-                                    [
-                                        start_pause,
-                                        reset,
-                                    ],
-                                    alignment=ft.MainAxisAlignment.CENTER,
-                                    spacing=8,
-                                ),
+                                buttons,
                             ],
                             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                             alignment=ft.MainAxisAlignment.CENTER,
