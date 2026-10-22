@@ -1,5 +1,6 @@
-# tokolog-flet settings. Copy to ~/.config/tokolog-flet/config.toml and edit.
-# Every setting is optional; the values shown are the defaults.
+# tokolog-flet settings, at ~/.config/tokolog-flet/config.toml. The gear in the app opens
+# this file; saving it applies the changes. Every setting is optional; the values shown
+# are the defaults.
 
 # Every profile is a [profiles.<name>] table with the same keys. [profiles.default]
 # is the base: the app uses it until another profile is picked, and the others take
