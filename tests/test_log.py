@@ -297,3 +297,18 @@ def test_session_placeholders(tmp_path: Path, clock: FakeClock) -> None:
         "stop 09:30 25:00 20:00 05:00",
         "start 09:55 00:00 00:00 00:00",  # a new session after the stop
     ]
+
+
+def test_mode_line_formats(tmp_path: Path, clock: FakeClock) -> None:
+    log = EventLog(
+        tmp_path,
+        line_format="{mode} {event}",
+        now=lambda: datetime(2026, 10, 21, 9, 30, 5),
+        mode_line_formats={"countdown": "{event} {timer_minutes} min", "stopwatch": ""},
+    )
+    c, s = Countdown(1500, clock), Stopwatch(clock)
+    c.start()
+    log.update("countdown", c)
+    s.start()
+    log.update("stopwatch", s)
+    assert lines(tmp_path) == ["start 25 min", "stopwatch start"]

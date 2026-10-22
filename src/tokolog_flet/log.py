@@ -96,7 +96,11 @@ def _safe(text: str) -> str:
 
 
 class EventLog:
-    """Appends a ``line_format`` line per event to a dated file in ``folder``."""
+    """Appends a line per event to a dated file in ``folder``.
+
+    The line is the mode's entry in ``mode_line_formats`` if it has a non-blank one,
+    otherwise ``line_format``.
+    """
 
     def __init__(
         self,
@@ -107,6 +111,7 @@ class EventLog:
         line_format: str = DEFAULT_LINE_FORMAT,
         now: Callable[[], datetime] = datetime.now,
         profile: str = "",
+        mode_line_formats: dict[str, str] | None = None,
     ) -> None:
         self.folder = folder
         self.file = file
@@ -115,6 +120,7 @@ class EventLog:
         self.line_format = line_format
         self.now = now
         self.profile = profile
+        self.mode_line_formats = mode_line_formats or {}
         self._seen: dict[str, tuple[State, float, str]] = {}
         # When each mode's running session started, by the wall clock.
         self._started: dict[str, datetime] = {}
@@ -144,7 +150,8 @@ class EventLog:
         since = (stamp - started).total_seconds() if started else None
         self.folder.mkdir(parents=True, exist_ok=True)
         path = self.folder / log_filename(self.file, self.date_format, stamp, label, self.profile)
-        line = self.line_format.format(
+        line_format = self.mode_line_formats.get(mode) or self.line_format
+        line = line_format.format(
             date=format_date(self.date_format, stamp),
             time=format_time(self.time_format, stamp),
             mode=mode,

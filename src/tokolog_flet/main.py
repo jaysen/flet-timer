@@ -31,6 +31,13 @@ FULL_BUTTON_WIDTH = 100
 COMPACT_BUTTON_WIDTH = 76
 
 
+def mode_line_formats(profile: Profile) -> dict[str, str]:
+    return {
+        COUNTDOWN: profile.log_line_format_countdown,
+        STOPWATCH: profile.log_line_format_stopwatch,
+    }
+
+
 def main(page: ft.Page, config: Config) -> None:
     page.title = "Tokolog-flet"
     page.window.width, page.window.height = FULL_SIZE
@@ -56,6 +63,7 @@ def main(page: ft.Page, config: Config) -> None:
         profile.log_time_format,
         profile.log_line_format,
         profile=profile_name,
+        mode_line_formats=mode_line_formats(profile),
     )
 
     mode = ft.SegmentedButton(
@@ -234,6 +242,7 @@ def main(page: ft.Page, config: Config) -> None:
         events.date_format = new.log_date_format
         events.time_format = new.log_time_format
         events.line_format = new.log_line_format
+        events.mode_line_formats = mode_line_formats(new)
         events.profile = profile_name
 
     def apply_config(new: Config) -> None:

@@ -359,3 +359,28 @@ def test_default_label(tmp_path: Path) -> None:
     assert Config().default_label == ""
     with pytest.raises(ConfigError, match=r"profiles\.default\.default_label"):
         load_config(write(tmp_path, "[profiles.default]\ndefault_label = 5\n"))
+
+
+def test_mode_line_formats(tmp_path: Path) -> None:
+    config = load_config(
+        write(
+            tmp_path,
+            '[profiles.default]\nline_format_countdown = "{event} {timer_minutes}"\n'
+            "[profiles.focus]\n"
+            '[profiles.work]\nline_format = "{event}"\n'
+            '[profiles.mixed]\nline_format = "{event}"\nline_format_stopwatch = "{elapsed}"\n',
+        )
+    )
+    assert Config().log_line_format_countdown == ""
+    assert config.log_line_format_countdown == "{event} {timer_minutes}"
+    assert config.log_line_format_stopwatch == ""
+    assert config.profile("focus").log_line_format_countdown == "{event} {timer_minutes}"
+    # Its own line_format replaces the per-mode line it would otherwise inherit.
+    assert config.profile("work").log_line_format_countdown == ""
+    mixed = config.profile("mixed")
+    assert (mixed.log_line_format_countdown, mixed.log_line_format_stopwatch) == ("", "{elapsed}")
+
+
+def test_rejects_invalid_mode_line_format(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match=r"profiles\.default\.line_format_stopwatch: unknown"):
+        load_config(write(tmp_path, '[profiles.default]\nline_format_stopwatch = "{nope}"\n'))
