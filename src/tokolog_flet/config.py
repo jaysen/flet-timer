@@ -1,7 +1,7 @@
 """User settings, read from a TOML file.
 
-The file lives at ``$XDG_CONFIG_HOME/flet-timer/config.toml`` (``~/.config`` if unset).
-``$FLET_TIMER_CONFIG`` overrides that path, e.g. to use a local file while developing.
+The file lives at ``$XDG_CONFIG_HOME/tokolog-flet/config.toml`` (``~/.config`` if unset).
+``$TOKOLOG_FLET_CONFIG`` overrides that path, e.g. to use a local file while developing.
 It is optional: a missing file or missing keys fall back to the defaults below.
 """
 
@@ -13,7 +13,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 from typing import Any
 
-from flet_timer.log import (
+from tokolog_flet.log import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_FILE,
     DEFAULT_LINE_FORMAT,
@@ -32,7 +32,7 @@ class ConfigError(Exception):
 
 def default_log_folder() -> Path:
     base = os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"
-    return Path(base) / "flet-timer" / "log"
+    return Path(base) / "tokolog-flet" / "log"
 
 
 @dataclass(frozen=True)
@@ -50,10 +50,10 @@ class Config:
 
 
 def config_path() -> Path:
-    if override := os.environ.get("FLET_TIMER_CONFIG"):
+    if override := os.environ.get("TOKOLOG_FLET_CONFIG"):
         return Path(override)
     base = os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config"
-    return Path(base) / "flet-timer" / "config.toml"
+    return Path(base) / "tokolog-flet" / "config.toml"
 
 
 def read_settings(path: Path) -> dict[str, Any]:

@@ -13,7 +13,7 @@ from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from pathlib import Path
 
-from flet_timer.timer import State, Stopwatch, format_seconds
+from tokolog_flet.timer import State, Stopwatch, format_seconds
 
 DEFAULT_DATE_FORMAT = "YYYY-MM-DD"
 DEFAULT_TIME_FORMAT = "HH:mm:ss"

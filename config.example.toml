@@ -1,4 +1,4 @@
-# flet-timer settings. Copy to ~/.config/flet-timer/config.toml and edit.
+# tokolog-flet settings. Copy to ~/.config/tokolog-flet/config.toml and edit.
 # Every setting is optional; the values shown are the defaults.
 
 [timer]
@@ -7,8 +7,8 @@ default_minutes = 25
 
 [log]
 # Folder for the daily activity logs. "~" is expanded and relative
-# paths are taken from this file's folder. Default: ~/.local/share/flet-timer/log
-# folder = "~/.local/share/flet-timer/log"
+# paths are taken from this file's folder. Default: ~/.local/share/tokolog-flet/log
+# folder = "~/.local/share/tokolog-flet/log"
 
 # File name, including extension. {date} is replaced using date_format and {label}
 # with the label typed in the app. A name without {date} puts every day in one file.

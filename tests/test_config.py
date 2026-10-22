@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from flet_timer.config import (
+from tokolog_flet.config import (
     DEFAULT_MINUTES,
     SETTINGS,
     Config,
@@ -63,28 +63,28 @@ def test_rejects_malformed_toml(tmp_path: Path) -> None:
 
 @pytest.fixture(autouse=True)
 def no_override(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv("FLET_TIMER_CONFIG", raising=False)
+    monkeypatch.delenv("TOKOLOG_FLET_CONFIG", raising=False)
 
 
 def test_config_path_override_wins(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    monkeypatch.setenv("FLET_TIMER_CONFIG", str(tmp_path / "dev.toml"))
+    monkeypatch.setenv("TOKOLOG_FLET_CONFIG", str(tmp_path / "dev.toml"))
     assert config_path() == tmp_path / "dev.toml"
 
 
 def test_config_path_honours_xdg(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
-    assert config_path() == tmp_path / "flet-timer" / "config.toml"
+    assert config_path() == tmp_path / "tokolog-flet" / "config.toml"
 
 
 def test_config_path_falls_back_to_dot_config(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
-    assert config_path() == Path.home() / ".config" / "flet-timer" / "config.toml"
+    assert config_path() == Path.home() / ".config" / "tokolog-flet" / "config.toml"
 
 
 def test_log_folder_defaults_to_xdg_data(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    assert load_config(tmp_path / "nope.toml").log_folder == tmp_path / "flet-timer" / "log"
+    assert load_config(tmp_path / "nope.toml").log_folder == tmp_path / "tokolog-flet" / "log"
 
 
 def test_log_folder_relative_to_config_file(tmp_path: Path) -> None:

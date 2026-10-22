@@ -1,6 +1,6 @@
 import pytest
 
-from flet_timer.timer import Countdown, State, Stopwatch, format_seconds, parse_duration
+from tokolog_flet.timer import Countdown, State, Stopwatch, format_seconds, parse_duration
 
 
 class FakeClock:

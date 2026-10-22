@@ -5,7 +5,7 @@ from pathlib import Path
 
 import flet as ft
 
-from flet_timer.config import (
+from tokolog_flet.config import (
     SETTINGS,
     Config,
     ConfigError,

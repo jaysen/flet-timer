@@ -3,14 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from flet_timer.log import (
+from tokolog_flet.log import (
     EventLog,
     format_date,
     format_time,
     log_filename,
     template_error,
 )
-from flet_timer.timer import Countdown, Stopwatch
+from tokolog_flet.timer import Countdown, Stopwatch
 
 
 class FakeClock:

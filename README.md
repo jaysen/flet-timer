@@ -1,4 +1,4 @@
-# flet-timer
+# Tokolog-flet
 
 Functional play with [Flet UI](https://flet.dev).. a desktop countdown timer and stopwatch that logs to my wiki
 
@@ -17,8 +17,8 @@ preselected as `.venv`.
 ## Run
 
 ```sh
-uv run flet run src/flet_timer/main.py   # hot reload while developing
-uv run flet-timer                        # plain run via entry point
+uv run flet run src/tokolog_flet/main.py   # hot reload while developing
+uv run tokolog-flet                        # plain run via entry point
 ```
 
 Or press F5 in VS Code ("Flet: run app").
@@ -32,13 +32,13 @@ label, time and Start/Reset, e.g. to keep a running timer in a corner. The same 
 
 ## Config
 
-Optional. Settings are read from `~/.config/flet-timer/config.toml`
-(or `$XDG_CONFIG_HOME/flet-timer/config.toml`); anything left out uses the default.
+Optional. Settings are read from `~/.config/tokolog-flet/config.toml`
+(or `$XDG_CONFIG_HOME/tokolog-flet/config.toml`); anything left out uses the default.
 [config.example.toml](config.example.toml) lists every setting:
 
 ```sh
-mkdir -p ~/.config/flet-timer 
-cp config.example.toml ~/.config/flet-timer/config.toml
+mkdir -p ~/.config/tokolog-flet 
+cp config.example.toml ~/.config/tokolog-flet/config.toml
 ```
 
 The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field
@@ -49,13 +49,13 @@ doesn't know are kept.
 To use a different file, e.g. a local one while developing (`config.toml` is gitignored):
 
 ```sh
-FLET_TIMER_CONFIG=config.toml uv run flet-timer
+TOKOLOG_FLET_CONFIG=config.toml uv run tokolog-flet
 ```
 
 ## Log
 
 Every start, pause, resume, stop and finish is appended to a file per day in the log folder
-(`~/.local/share/flet-timer/log/` unless `[log] folder` is set in the config):
+(`~/.local/share/tokolog-flet/log/` unless `[log] folder` is set in the config):
 
 ```text
 09:30:05  countdown  start   00:00
