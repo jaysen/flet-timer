@@ -91,40 +91,65 @@ def load_config(path: Path | None = None) -> Config:
 def parse_config(data: dict[str, Any], path: Path) -> Config:
     """Validate raw settings; ``path`` is only used for messages and relative folders."""
     timer = _section(data, "timer", path)
-    minutes = timer.get("default_minutes", DEFAULT_MINUTES)
+    log = _section(data, "log", path)
+    default = _parse_profile(timer, log, Profile(), "timer.", "log.", path)
+
+    profiles: dict[str, Profile] = {}
+    for name, table in _section(data, "profiles", path).items():
+        if name.strip().lower() == DEFAULT_PROFILE:
+            raise ConfigError(f"{path}: profiles.{name}: that name is the built-in profile")
+        if not isinstance(table, dict):
+            raise ConfigError(f"{path}: [profiles.{name}] must be a table")
+        # A profile's keys sit together in one table and override the default's.
+        prefix = f"profiles.{name}."
+        profiles[name] = _parse_profile(table, table, default, prefix, prefix, path)
+    return Config(**vars(default), profiles=profiles)
+
+
+def _parse_profile(
+    timer: dict[str, Any],
+    log: dict[str, Any],
+    base: Profile,
+    timer_key: str,
+    log_key: str,
+    path: Path,
+) -> Profile:
+    """``base`` with whatever ``timer`` and ``log`` set; keys in messages get the prefixes."""
+    minutes = timer.get("default_minutes", base.default_minutes)
     # bool is an int subclass, so `true` would otherwise pass as 1 minute.
     if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes <= 0:
-        raise ConfigError(f"{path}: timer.default_minutes must be a positive number")
+        raise ConfigError(f"{path}: {timer_key}default_minutes must be a positive number")
 
-    log = _section(data, "log", path)
     folder = log.get("folder")
     if folder is None:
-        log_folder = default_log_folder()
+        log_folder = base.log_folder
     elif isinstance(folder, str) and folder:
         # Relative paths are taken from the config file's folder, not wherever the app runs.
         log_folder = path.parent / Path(folder).expanduser()
     else:
-        raise ConfigError(f"{path}: log.folder must be a non-empty string")
+        raise ConfigError(f"{path}: {log_key}folder must be a non-empty string")
 
-    file = log.get("file", DEFAULT_FILE)
+    file = log.get("file", base.log_file)
     if not _is_filename(file):
-        raise ConfigError(f"{path}: log.file must be a non-empty file name, without folders")
-    _check_template(file, "log.file", FILE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {log_key}file must be a non-empty file name, without folders")
+    _check_template(file, f"{log_key}file", FILE_PLACEHOLDERS, path)
     # The date ends up in the file name, so it follows the same rules.
-    date_format = log.get("date_format", DEFAULT_DATE_FORMAT)
+    date_format = log.get("date_format", base.log_date_format)
     if not _is_filename(date_format):
-        raise ConfigError(f"{path}: log.date_format must be a non-empty string, without / or \\")
+        raise ConfigError(
+            f"{path}: {log_key}date_format must be a non-empty string, without / or \\"
+        )
 
-    time_format = log.get("time_format", DEFAULT_TIME_FORMAT)
+    time_format = log.get("time_format", base.log_time_format)
     if not isinstance(time_format, str) or not time_format:
-        raise ConfigError(f"{path}: log.time_format must be a non-empty string")
+        raise ConfigError(f"{path}: {log_key}time_format must be a non-empty string")
 
-    line_format = log.get("line_format", DEFAULT_LINE_FORMAT)
+    line_format = log.get("line_format", base.log_line_format)
     if not isinstance(line_format, str):
-        raise ConfigError(f"{path}: log.line_format must be a string")
-    _check_template(line_format, "log.line_format", LINE_PLACEHOLDERS, path)
+        raise ConfigError(f"{path}: {log_key}line_format must be a string")
+    _check_template(line_format, f"{log_key}line_format", LINE_PLACEHOLDERS, path)
 
-    return Config(
+    return Profile(
         default_minutes=minutes,
         log_folder=log_folder,
         log_file=file,

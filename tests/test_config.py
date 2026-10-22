@@ -7,6 +7,7 @@ from tokolog_flet.config import (
     SETTINGS,
     Config,
     ConfigError,
+    Profile,
     apply_settings,
     config_path,
     dumps_toml,
@@ -240,3 +241,52 @@ def test_dumps_empty_is_empty() -> None:
 def test_dumps_rejects_unwritable_value() -> None:
     with pytest.raises(ConfigError, match="cannot write"):
         dumps_toml({"a": None})
+
+
+def test_no_profiles_by_default(tmp_path: Path) -> None:
+    config = load_config(tmp_path / "nope.toml")
+    assert config.profiles == {}
+    assert config.profile("default") is config
+
+
+def test_profile_overrides_default(tmp_path: Path) -> None:
+    config = load_config(
+        write(
+            tmp_path,
+            "[timer]\ndefault_minutes = 25\n"
+            '[log]\nfile = "{date}.md"\nline_format = "- {time} {event}"\n'
+            '[profiles.work]\ndefault_minutes = 50\nfolder = "work"\nfile = "work-{date}.csv"\n',
+        )
+    )
+    work = config.profile("work")
+    assert (work.default_minutes, work.log_folder, work.log_file) == (
+        50,
+        tmp_path / "work",
+        "work-{date}.csv",
+    )
+    # What the profile leaves out comes from [timer] and [log], not the built-in defaults.
+    assert work.log_line_format == "- {time} {event}"
+    assert config.profile("missing") is config
+
+
+def test_empty_profile_matches_default(tmp_path: Path) -> None:
+    config = load_config(write(tmp_path, '[log]\nfile = "{date}.md"\n[profiles.focus]\n'))
+    assert config.profile("focus") == Profile(log_file="{date}.md")
+
+
+def test_profile_error_names_profile_key(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match=r"profiles\.work\.line_format: unknown placeholder"):
+        load_config(write(tmp_path, '[profiles.work]\nline_format = "{nope}"\n'))
+    with pytest.raises(ConfigError, match=r"profiles\.work\.default_minutes"):
+        load_config(write(tmp_path, "[profiles.work]\ndefault_minutes = 0\n"))
+
+
+@pytest.mark.parametrize("text", ["profiles = 1\n", "[profiles]\nwork = 1\n"])
+def test_rejects_non_table_profiles(tmp_path: Path, text: str) -> None:
+    with pytest.raises(ConfigError, match=r"\[profiles"):
+        load_config(write(tmp_path, text))
+
+
+def test_rejects_default_as_profile_name(tmp_path: Path) -> None:
+    with pytest.raises(ConfigError, match="built-in"):
+        load_config(write(tmp_path, "[profiles.Default]\n"))

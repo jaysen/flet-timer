@@ -25,3 +25,12 @@ default_minutes = 25
 #   label:   the label typed in the app, or the mode if none
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"
+
+# Named profiles, picked at the bottom of the window. A profile sets any of the keys
+# above (from [timer] and [log]) in one table; what it leaves out comes from those
+# sections. "default" is the built-in profile, made of [timer] and [log] themselves.
+# [profiles.work]
+# default_minutes = 50
+# folder = "~/work/timesheets"
+# file = "timesheet-{date}.csv"
+# line_format = "{date},{time},{label},{event},{elapsed}"
