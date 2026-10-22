@@ -118,6 +118,13 @@ def test_line_format_default(tmp_path: Path) -> None:
     assert config.log_line_format == "{time}  {mode:<9}  {event:<6}  {elapsed}"
 
 
+def test_accepts_label_placeholder(tmp_path: Path) -> None:
+    config = load_config(
+        write(tmp_path, '[log]\nfile = "{date}-{label}.md"\nline_format = "{label}"\n')
+    )
+    assert (config.log_file, config.log_line_format) == ("{date}-{label}.md", "{label}")
+
+
 def test_reads_line_format(tmp_path: Path) -> None:
     config = load_config(write(tmp_path, '[log]\nline_format = " - {time} {event}"\n'))
     assert config.log_line_format == " - {time} {event}"
