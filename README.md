@@ -26,7 +26,7 @@ Or press F5 in VS Code ("Flet: run app").
 To set the countdown, click its time and type e.g. `25` (minutes), `1:30`, `1:00:00` or
 `1h30m`, then press Enter (Esc cancels). It starts at `[timer] default_minutes` from the config.
 
-The shrink icon next to the window buttons switches to a compact view that shows just the
+The shrink icon next to the gear switches to a compact view that shows just the
 label, time and Start/Reset, e.g. to keep a running timer in a corner. The same button
 (now an expand icon) brings back the full view.
 

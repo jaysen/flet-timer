@@ -207,11 +207,8 @@ def main(page: ft.Page, config: Config) -> None:
             page.window.width, page.window.height = COMPACT_SIZE
         else:
             page.window.width, page.window.height = full_size
-        # Only the label, time and buttons stay; the window buttons shift right.
-        settings_slot.visible = mode.visible = bottom_spacer.visible = not compact
-        top_bar.alignment = (
-            ft.MainAxisAlignment.END if compact else ft.MainAxisAlignment.SPACE_BETWEEN
-        )
+        # Only the label, time and buttons stay, plus this button and the window buttons.
+        settings_button.visible = mode.visible = bottom_spacer.visible = not compact
         size = COMPACT_TIME_SIZE if compact else FULL_TIME_SIZE
         display.size = time_field.text_size = size
         label.width = 200 if compact else 260
@@ -234,19 +231,19 @@ def main(page: ft.Page, config: Config) -> None:
         )
 
     # As wide as the window buttons so the mode toggle sits centred.
+    settings_button = window_button(ft.Icons.SETTINGS, "Settings", on_settings)
+    compact_button = window_button(ft.Icons.CLOSE_FULLSCREEN, "Compact view", on_toggle_compact)
     settings_slot = ft.Container(
-        window_button(ft.Icons.SETTINGS, "Settings", on_settings),
-        width=78,
+        ft.Row([settings_button, compact_button], spacing=0),
+        width=52,
         alignment=ft.Alignment.CENTER_LEFT,
     )
-    compact_button = window_button(ft.Icons.CLOSE_FULLSCREEN, "Compact view", on_toggle_compact)
     top_bar = ft.Row(
         [
             settings_slot,
             mode,
             ft.Row(
                 [
-                    compact_button,
                     window_button(ft.Icons.MINIMIZE, "Minimise", on_minimize),
                     window_button(ft.Icons.CLOSE, "Close", on_close),
                 ],
