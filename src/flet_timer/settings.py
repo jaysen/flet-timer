@@ -86,9 +86,8 @@ def open_settings(
             value=setting_text(data, setting),
             hint_text=setting.default,
             hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
-            # The label covers the hint until the field is focused, so show the default here too.
-            helper=f"Default: {setting.default}\n{setting.help}",
-            helper_max_lines=3,
+            # The label covers the hint until the field is focused, so the tooltip says it too.
+            tooltip=f"Default: {setting.default}\n{setting.help}",
             error_max_lines=3,
             dense=True,
             text_size=13,
@@ -193,7 +192,7 @@ def open_settings(
                                 ft.Divider(height=8),
                                 footer,
                             ],
-                            spacing=14,
+                            spacing=12,
                             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                         ),
                         padding=ft.Padding.only(right=14),
