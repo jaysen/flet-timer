@@ -18,7 +18,7 @@ from flet_timer.config import (
 )
 
 # The window grows to this while the popup is open; the timer window is too small for it.
-WINDOW_SIZE = (440, 640)
+WINDOW_SIZE = (440, 620)
 DIALOG_WIDTH = 360
 SECTIONS = {"timer": ("Timer", ft.Icons.TIMER_OUTLINED), "log": ("Log", ft.Icons.NOTES)}
 # Templates are easier to read, and their spacing easier to see, in a fixed-width font.
@@ -153,7 +153,7 @@ def open_settings(
     def on_cancel(_: ft.Event[ft.TextButton]) -> None:
         page.pop_dialog()
 
-    footer = ft.Row(
+    path_row = ft.Row(
         [
             ft.Icon(ft.Icons.DESCRIPTION_OUTLINED, size=14, color=ft.Colors.OUTLINE),
             ft.Text(str(path), size=11, color=ft.Colors.OUTLINE, selectable=True, expand=True),
@@ -176,11 +176,12 @@ def open_settings(
         ft.AlertDialog(
             modal=True,
             title=ft.Row(
-                [ft.Icon(ft.Icons.SETTINGS_OUTLINED), ft.Text("Settings", size=20)],
+                [ft.Icon(ft.Icons.SETTINGS_OUTLINED), ft.Text("Settings", size=19)],
                 spacing=10,
             ),
             content=ft.Column(
                 [
+                    path_row,
                     # Room on the right so the scrollbar doesn't sit on the fields.
                     ft.Container(
                         ft.Column(
@@ -189,21 +190,21 @@ def open_settings(
                                 ft.Container(height=4),
                                 *section("log"),
                                 banner,
-                                ft.Divider(height=8),
-                                footer,
                             ],
                             spacing=12,
                             horizontal_alignment=ft.CrossAxisAlignment.STRETCH,
                         ),
                         padding=ft.Padding.only(right=14),
-                    )
+                    ),
                 ],
                 width=DIALOG_WIDTH,
                 scroll=ft.ScrollMode.AUTO,
+                spacing=12,
                 tight=True,
             ),
             actions=actions,
             actions_alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+            content_padding=ft.Padding.only(left=24, right=24, top=20, bottom=0),
             inset_padding=16,
             # Every way of closing ends here, including Esc.
             on_dismiss=lambda _: on_closed(),
