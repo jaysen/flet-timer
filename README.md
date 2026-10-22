@@ -2,6 +2,17 @@
 
 Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in a configurable format, to a configurable file - in my case: a journal page in wiki
 
+## Features
+
+- **Timer + stopwatch modes** with quick mode switching.
+- **Flexible countdown input** (`25`, `1:30`, `1:00:00`, `1h30m`) and inline editing.
+- **Start / pause / resume / reset flow** with elapsed/display time tracking.
+- **Compact view toggle** for a minimal always-visible timer window.
+- **Editable label** per session, used in log output.
+- **Configurable settings file** for defaults and logging behavior.
+- **Daily log files** with templated file names and line formats.
+- **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, and `{label}`.
+
 
 ## Setup
 
@@ -42,10 +53,7 @@ mkdir -p ~/.config/tokolog-flet
 cp config.example.toml ~/.config/tokolog-flet/config.toml
 ```
 
-The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field
-to change it, empty one to go back to its default (the default shows as the hint), then Save.
-Changes apply straight away. Saving rewrites the file, so comments in it are lost; keys the app
-doesn't know are kept.
+The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field to change it, empty one to go back to its default (the default shows as the hint), then Save. Changes apply straight away. Saving rewrites the file, so comments in it are lost; keys the app doesn't know are kept.
 
 To use a different file, e.g. a local one while developing (`config.toml` is gitignored):
 

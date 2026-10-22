@@ -1,7 +1,7 @@
 [project]
-name = "tokolog-flet"
-version = "0.1.0"
-description = "Desktop timer built with Flet"
+name = "tok-o-log-flet"
+version = "1.0.0"
+description = "Desktop timer with configurable logging - built with Flet"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = "GPL-3.0-or-later"
