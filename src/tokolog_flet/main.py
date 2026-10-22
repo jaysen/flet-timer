@@ -70,7 +70,8 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         COUNTDOWN: Countdown(profile.default_seconds),
         STOPWATCH: Stopwatch(),
     }
-    current = STOPWATCH
+    # A profile that allows only one mode starts in it.
+    current = profile.mode or STOPWATCH
     timer = timers[current]
     events = EventLog(
         profile.log_folder,
@@ -158,7 +159,30 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         # Only before starting or once finished, so a paused countdown isn't lost by accident.
         return isinstance(timer, Countdown) and timer.state in (State.IDLE, State.FINISHED)
 
+    def switch_mode(new: str) -> None:
+        nonlocal current, timer
+        log_state()
+        timer.reset()
+        log_state()
+        current = new
+        timer = timers[current]
+        mode.selected = [current]
+
+    def follow_profile_mode() -> None:
+        locked = config.profile(profile_name).mode
+        # Waits for an idle timer, e.g. after a config edit mid-session, so nothing is cut short.
+        if (
+            locked
+            and locked != current
+            and timer.state in (State.IDLE, State.FINISHED)
+            and not time_field.visible
+        ):
+            switch_mode(locked)
+        mode.disabled = locked is not None
+        mode.tooltip = "Mode set by the profile" if locked else "Select mode"
+
     def render() -> None:
+        follow_profile_mode()
         log_state()
         display.value = timer.display()
         label.hint_text = fallback_label()
@@ -207,13 +231,8 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             finish_setting_time(apply=False)
 
     def on_mode_change(_: ft.Event[ft.SegmentedButton]) -> None:
-        nonlocal current, timer
         finish_setting_time(apply=False)
-        log_state()
-        timer.reset()
-        log_state()
-        current = mode.selected[0]
-        timer = timers[current]
+        switch_mode(mode.selected[0])
         render()
 
     def on_start_pause(_: ft.Event[ft.Button]) -> None:
@@ -443,6 +462,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             expand=True,
         )
     )
+    render()
     page.run_task(watch_config)
 
 
