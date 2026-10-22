@@ -37,9 +37,11 @@ def default_log_folder() -> Path:
 
 @dataclass(frozen=True)
 class Profile:
-    """Timer default and log settings: what a profile can set."""
+    """Timer defaults and log settings: what a profile can set."""
 
     default_minutes: float = DEFAULT_MINUTES
+    # Used when the label field is left empty; blank falls back to the mode.
+    default_label: str = ""
     log_folder: Path = field(default_factory=default_log_folder)
     log_file: str = DEFAULT_FILE
     log_date_format: str = DEFAULT_DATE_FORMAT
@@ -116,6 +118,10 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
     if isinstance(minutes, bool) or not isinstance(minutes, int | float) or minutes <= 0:
         raise ConfigError(f"{path}: {prefix}default_minutes must be a positive number")
 
+    label = table.get("default_label", base.default_label)
+    if not isinstance(label, str):
+        raise ConfigError(f"{path}: {prefix}default_label must be a string")
+
     folder = table.get("folder")
     if folder is None:
         log_folder = base.log_folder
@@ -147,6 +153,7 @@ def _parse_profile(table: dict[str, Any], base: Profile, name: str, path: Path) 
 
     return Profile(
         default_minutes=minutes,
+        default_label=label.strip(),
         log_folder=log_folder,
         log_file=file,
         log_date_format=date_format,
@@ -191,6 +198,13 @@ def _setting_defaults() -> list[Setting]:
             "Default minutes",
             f"{config.default_minutes:g}",
             "Countdown start time; fractions allowed, e.g. 1.5",
+        ),
+        Setting(
+            "timer",
+            "default_label",
+            "Default label",
+            "the mode",
+            "Logged when the label is left empty",
         ),
         Setting(
             "log",

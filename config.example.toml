@@ -8,6 +8,8 @@
 [profiles.default]
 # Countdown start time in minutes (fractions allowed, e.g. 1.5).
 default_minutes = 25
+# Label logged when the label field is left empty. Unset, the mode is used.
+# default_label = "journal"
 
 # Folder for the daily activity logs. "~" is expanded and relative
 # paths are taken from this file's folder. Default: ~/.local/share/tokolog-flet/log
@@ -26,7 +28,7 @@ default_minutes = 25
 # Placeholders: {date} {time} {mode} {event} {elapsed} {display} {label} {profile}
 #   event:   start, pause, resume, stop or finish
 #   elapsed: time run so far; display: what the timer showed (countdown: time left)
-#   label:   the label typed in the app, or the mode if none
+#   label:   the label typed in the app, else default_label, else the mode
 #   profile: the profile picked in the app ("default" if none)
 # Python format specs work ({mode:<9} pads); use {{ and }} for literal braces.
 # line_format = "{time}  {mode:<9}  {event:<6}  {elapsed}"

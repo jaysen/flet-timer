@@ -9,7 +9,7 @@ Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in
 - **Start / pause / resume / reset flow** with elapsed/display time tracking.
 - **Compact view toggle** for a minimal always-visible timer window.
 - **Editable label** per session, used in log output.
-- **Named profiles**, each with its own log file, line format and countdown default.
+- **Named profiles**, each with its own log file, line format, countdown default and label.
 - **Configurable settings file** for defaults and logging behavior.
 - **Daily log files** with templated file names and line formats.
 - **Customizable placeholders** for `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`, `{label}` and `{profile}`.
@@ -87,7 +87,7 @@ line_format = "- {time} {mode} {event} {display}"
 
 `line_format` can use `{date}`, `{time}`, `{mode}`, `{event}`, `{elapsed}`, `{display}`
 (what the timer showed, so time left for a countdown), `{label}` (the label typed in
-the app, or the mode if none) and `{profile}`. `file` can use `{date}`, `{label}` and
+the app, else the profile's `default_label`, else the mode) and `{profile}`. `file` can use `{date}`, `{label}` and
 `{profile}`. See [config.example.toml](config.example.toml) for details.
 
 ## Profiles
@@ -101,6 +101,7 @@ leave out from it:
 ```toml
 [profiles.work]
 default_minutes = 50
+default_label = "admin"   # logged when the label field is empty
 folder = "~/work/timesheets"
 file = "timesheet-{date}.csv"
 line_format = "{date},{time},{label},{event},{elapsed}"

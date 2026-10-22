@@ -124,8 +124,11 @@ def main(page: ft.Page, config: Config) -> None:
             page.window.height = FULL_SIZE[1] + (PICKER_HEIGHT if shown else 0)
 
     def log_state() -> None:
-        # Without a label of its own, a timer is labelled by its mode, as the hint shows.
-        events.update(current, timer, (label.value or "").strip() or current)
+        events.update(current, timer, (label.value or "").strip() or fallback_label())
+
+    def fallback_label() -> str:
+        # Without a label of its own, a timer takes the profile's, else its mode, as the hint shows.
+        return config.profile(profile_name).default_label or current
 
     def can_set_time() -> bool:
         # Only before starting or once finished, so a paused countdown isn't lost by accident.
@@ -134,7 +137,7 @@ def main(page: ft.Page, config: Config) -> None:
     def render() -> None:
         log_state()
         display.value = timer.display()
-        label.hint_text = current
+        label.hint_text = fallback_label()
         editable = can_set_time()
         time_display.mouse_cursor = ft.MouseCursor.CLICK if editable else None
         time_display.tooltip = SET_TIME_TOOLTIP if editable else None

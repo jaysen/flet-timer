@@ -348,3 +348,14 @@ def test_setting_key() -> None:
     file = next(s for s in SETTINGS if s.name == "file")
     assert setting_key(file) == "profiles.default.file"
     assert setting_key(file, "work") == "profiles.work.file"
+
+
+def test_default_label(tmp_path: Path) -> None:
+    config = load_config(
+        write(tmp_path, '[profiles.default]\ndefault_label = " journal "\n[profiles.work]\n')
+    )
+    assert config.default_label == "journal"
+    assert config.profile("work").default_label == "journal"
+    assert Config().default_label == ""
+    with pytest.raises(ConfigError, match=r"profiles\.default\.default_label"):
+        load_config(write(tmp_path, "[profiles.default]\ndefault_label = 5\n"))
