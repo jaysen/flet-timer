@@ -37,6 +37,11 @@ mkdir -p ~/.config/flet-timer
 cp config.example.toml ~/.config/flet-timer/config.toml
 ```
 
+The gear icon in the top bar opens a settings popup showing what the file sets. Edit a field
+to change it, empty one to go back to its default (the default shows as the hint), then Save.
+Changes apply straight away. Saving rewrites the file, so comments in it are lost; keys the app
+doesn't know are kept.
+
 To use a different file, e.g. a local one while developing (`config.toml` is gitignored):
 
 ```sh
