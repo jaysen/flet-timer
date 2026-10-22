@@ -8,13 +8,17 @@ from tokolog_flet.config import (
     Config,
     ConfigError,
     Profile,
+    add_profile,
     apply_settings,
     config_path,
     dumps_toml,
     load_config,
     parse_config,
+    profile_names,
     read_settings,
+    remove_profile,
     save_settings,
+    setting_key,
     setting_text,
 )
 
@@ -290,3 +294,50 @@ def test_rejects_non_table_profiles(tmp_path: Path, text: str) -> None:
 def test_rejects_default_as_profile_name(tmp_path: Path) -> None:
     with pytest.raises(ConfigError, match="built-in"):
         load_config(write(tmp_path, "[profiles.Default]\n"))
+
+
+def test_setting_text_for_profile() -> None:
+    file = next(s for s in SETTINGS if s.key == "log.file")
+    data = {"log": {"file": "a.md"}, "profiles": {"work": {"file": "w.md"}, "focus": {}}}
+    assert setting_text(data, file) == "a.md"
+    assert setting_text(data, file, "work") == "w.md"
+    assert setting_text(data, file, "focus") == ""
+    assert setting_text(data, file, "missing") == ""
+
+
+def test_apply_settings_to_profile() -> None:
+    data = {"log": {"file": "a.md"}, "profiles": {"work": {"file": "w.md", "extra": 1}}}
+    values = {"log.file": "", "log.line_format": "{event}", "timer.default_minutes": "50"}
+    assert apply_settings(data, values, "work") == {
+        "log": {"file": "a.md"},
+        "profiles": {"work": {"extra": 1, "line_format": "{event}", "default_minutes": 50}},
+    }
+    assert data["profiles"]["work"]["file"] == "w.md"  # input untouched
+
+
+def test_apply_settings_keeps_empty_profile() -> None:
+    assert apply_settings({}, {}, "focus") == {"profiles": {"focus": {}}}
+
+
+def test_apply_settings_profile_error_names_profile() -> None:
+    with pytest.raises(ConfigError, match=r"profiles\.work\.default_minutes"):
+        apply_settings({}, {"timer.default_minutes": "abc"}, "work")
+
+
+def test_add_and_remove_profile() -> None:
+    data = add_profile({"log": {"file": "a.md"}}, " work ")
+    assert data == {"log": {"file": "a.md"}, "profiles": {"work": {}}}
+    assert profile_names(add_profile(data, "focus")) == ["work", "focus"]
+    assert remove_profile(data, "work") == {"log": {"file": "a.md"}}
+
+
+@pytest.mark.parametrize("name", ["", "  ", "work", "Default"])
+def test_add_profile_rejects_taken_or_blank_name(name: str) -> None:
+    with pytest.raises(ConfigError):
+        add_profile({"profiles": {"work": {}}}, name)
+
+
+def test_setting_key() -> None:
+    file = next(s for s in SETTINGS if s.key == "log.file")
+    assert setting_key(file) == "log.file"
+    assert setting_key(file, "work") == "profiles.work.file"

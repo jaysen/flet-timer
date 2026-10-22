@@ -247,32 +247,80 @@ def _tilde(path: Path) -> str:
 SETTINGS = _setting_defaults()
 
 
-def setting_text(data: dict[str, Any], setting: Setting) -> str:
+def setting_key(setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
+    """Where ``setting`` lives for ``profile``, as config messages name it."""
+    return setting.key if profile == DEFAULT_PROFILE else f"profiles.{profile}.{setting.name}"
+
+
+def profile_names(data: dict[str, Any]) -> list[str]:
+    """The named profiles in raw settings, in file order."""
+    profiles = data.get("profiles")
+    return list(profiles) if isinstance(profiles, dict) else []
+
+
+def setting_text(data: dict[str, Any], setting: Setting, profile: str = DEFAULT_PROFILE) -> str:
     """What the file sets for ``setting`` as editable text; empty if it is not set."""
-    value = data.get(setting.section, {})
-    value = value.get(setting.name) if isinstance(value, dict) else None
+    if profile == DEFAULT_PROFILE:
+        table = data.get(setting.section)
+    else:
+        profiles = data.get("profiles")
+        table = profiles.get(profile) if isinstance(profiles, dict) else None
+    value = table.get(setting.name) if isinstance(table, dict) else None
     return "" if value is None else str(value)
 
 
-def apply_settings(data: dict[str, Any], values: dict[str, str]) -> dict[str, Any]:
+def apply_settings(
+    data: dict[str, Any], values: dict[str, str], profile: str = DEFAULT_PROFILE
+) -> dict[str, Any]:
     """Copy of ``data`` with each setting in ``values`` (by key) set, or removed if blank.
 
+    The settings go in ``[timer]`` and ``[log]`` for the default profile, otherwise in the
+    profile's own table, which is kept even when empty: an empty profile is still one.
     Text is kept as typed: spaces can matter, e.g. at the start of a line format.
     Anything else in ``data`` is kept. Whether the result is valid is for ``parse_config``.
     """
     result = {k: dict(v) if isinstance(v, dict) else v for k, v in data.items()}
+    if profile != DEFAULT_PROFILE:
+        profiles = result.setdefault("profiles", {})
+        if not isinstance(profiles, dict):
+            raise ConfigError("[profiles] must be a table")
+        table = profiles.get(profile, {})
+        if not isinstance(table, dict):
+            raise ConfigError(f"[profiles.{profile}] must be a table")
+        profiles[profile] = dict(table)
     for setting in SETTINGS:
-        text = values.get(setting.key, "")
-        section = result.setdefault(setting.section, {})
-        if not isinstance(section, dict):
-            raise ConfigError(f"[{setting.section}] must be a table")
-        if not text.strip():
-            section.pop(setting.name, None)
-        elif setting.key == "timer.default_minutes":
-            section[setting.name] = _number(text.strip(), setting.key)
+        if profile == DEFAULT_PROFILE:
+            table = result.setdefault(setting.section, {})
+            if not isinstance(table, dict):
+                raise ConfigError(f"[{setting.section}] must be a table")
         else:
-            section[setting.name] = text
+            table = result["profiles"][profile]
+        text = values.get(setting.key, "")
+        if not text.strip():
+            table.pop(setting.name, None)
+        elif setting.key == "timer.default_minutes":
+            table[setting.name] = _number(text.strip(), setting_key(setting, profile))
+        else:
+            table[setting.name] = text
     return {k: v for k, v in result.items() if v != {}}
+
+
+def add_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Copy of ``data`` with an empty profile called ``name``, which must be new."""
+    name = name.strip()
+    if not name:
+        raise ConfigError("A profile needs a name")
+    if name.lower() == DEFAULT_PROFILE or name in profile_names(data):
+        raise ConfigError(f"There is already a profile called {name}")
+    profiles = data.get("profiles", {})
+    return {**data, "profiles": {**profiles, name: {}}}
+
+
+def remove_profile(data: dict[str, Any], name: str) -> dict[str, Any]:
+    """Copy of ``data`` without the profile called ``name``."""
+    profiles = {k: v for k, v in data.get("profiles", {}).items() if k != name}
+    result = {k: v for k, v in data.items() if k != "profiles"}
+    return {**result, "profiles": profiles} if profiles else result
 
 
 def _number(text: str, key: str) -> int | float:
