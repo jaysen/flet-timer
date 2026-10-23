@@ -107,6 +107,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     )
 
     def sync_profile_picker() -> None:
+        nonlocal picker_room
         profile_picker.options = [
             ft.DropdownOption(key=name, text=name)
             for name in [DEFAULT_PROFILE, *session.config.profiles]
@@ -118,7 +119,11 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         if not compact:
             # Without the picker the bar only mirrors the top bar, so the content stays centred.
             bottom_bar.height = PICKER_HEIGHT + PICKER_GAP if shown else 24
-            page.window.height = FULL_SIZE[1] + (PICKER_HEIGHT if shown else 0)
+            if shown != picker_room:
+                # Grow or shrink by the picker alone, so a height set by resizing is kept.
+                height = page.window.height or FULL_SIZE[1]
+                page.window.height = height + (PICKER_HEIGHT if shown else -PICKER_HEIGHT)
+                picker_room = shown
 
     def follow_profile_mode() -> None:
         # Not while the time is being typed, so the typing isn't lost.
@@ -144,13 +149,21 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         stop_reset.disabled = state is State.IDLE
         # A session stays in one log; only a timer that isn't under way can change profile.
         profile_picker.disabled = under_way(session.timer)
+        sync_error_bar()
         page.update()
 
     async def tick() -> None:
-        ticking = session.timer
-        while ticking is session.timer and ticking.state is State.RUNNING:
-            render()
-            await asyncio.sleep(TICK_SECONDS)
+        nonlocal ticking
+        # A quick pause and resume finds the last loop still going; one is enough.
+        if ticking:
+            return
+        ticking = True
+        try:
+            while session.timer.state is State.RUNNING:
+                render()
+                await asyncio.sleep(TICK_SECONDS)
+        finally:
+            ticking = False
         render()
 
     async def on_time_click(_: ft.TapEvent[ft.GestureDetector]) -> None:
@@ -208,8 +221,20 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             page.update()
 
     def show_error(message: str) -> None:
+        nonlocal config_problem
+        config_problem = message
+        sync_error_bar()
+
+    def sync_error_bar() -> None:
+        # A log that can't be written matters more: events are being lost.
+        message = session.log_error or config_problem
         error_text.value = message
         error_bar.visible = bool(message)
+        error_bar.tooltip = (
+            "Check the log folder and file; click to edit the config"
+            if session.log_error
+            else f"Problem in {config_path()}; click to edit"
+        )
 
     async def watch_config() -> None:
         # Saving in the editor is the "apply"; a broken save keeps the last good config.
@@ -242,6 +267,11 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
 
     compact = False
     full_size = FULL_SIZE
+    # Whether the full view's height includes room for the profile picker.
+    picker_room = False
+    ticking = False
+    # Why the config file couldn't be used or opened; shown until that's fixed.
+    config_problem = ""
 
     def on_toggle_compact(_: ft.Event[ft.IconButton]) -> None:
         nonlocal compact, full_size
@@ -325,7 +355,6 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         bgcolor=ft.Colors.ERROR_CONTAINER,
         border_radius=6,
         padding=ft.Padding.symmetric(horizontal=8, vertical=4),
-        tooltip=f"Problem in {config_path()}; click to edit",
         on_click=edit_config,
     )
     show_error(config_error.removeprefix(f"{config_path()}: "))

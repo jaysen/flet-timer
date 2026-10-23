@@ -162,3 +162,28 @@ def test_apply_config_drops_removed_profile(tmp_path: Path, clock: FakeClock) ->
     session.apply_config(make_config(tmp_path))
     assert session.profile_name == DEFAULT_PROFILE
     assert session.events.profile == DEFAULT_PROFILE
+
+
+def test_unwritable_log_is_reported_not_raised(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "file").write_text("")
+    session = Session(Config(log_folder=tmp_path / "file" / "log"), DEFAULT_PROFILE, clock)
+    session.start_pause()
+    session.log_state()
+    assert session.timer.state is State.RUNNING
+    assert session.log_error.startswith(f"Could not write the log to {tmp_path / 'file'}")
+
+
+def test_log_error_clears_once_a_line_is_written(tmp_path: Path, clock: FakeClock) -> None:
+    (tmp_path / "file").write_text("")
+    session = Session(Config(log_folder=tmp_path / "file" / "log"), DEFAULT_PROFILE, clock)
+    session.start_pause()
+    session.log_state()
+    session.events.folder = tmp_path / "log"
+    # Nothing new to log keeps the error up.
+    session.log_state()
+    assert session.log_error
+    clock.now = 5
+    session.start_pause()
+    session.log_state()
+    assert session.log_error == ""
+    assert log_lines(tmp_path / "log")

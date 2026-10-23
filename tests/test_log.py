@@ -376,3 +376,12 @@ def test_use_profile_takes_its_log_settings(tmp_path: Path) -> None:
     assert (events.date_format, events.time_format) == ("DD/MM", "HH:mm")
     assert events.line_format_for("stopwatch", "start") == "{event}"
     assert events.line_format_for("stopwatch", "stop") == ""
+
+
+def test_update_returns_the_event(tmp_path: Path, clock: FakeClock) -> None:
+    events = make_log(tmp_path)
+    watch = Stopwatch(clock)
+    assert events.update("stopwatch", watch) is None
+    watch.start()
+    assert events.update("stopwatch", watch) == "start"
+    assert events.update("stopwatch", watch) is None

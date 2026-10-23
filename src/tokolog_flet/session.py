@@ -33,6 +33,8 @@ class Session:
         self.events.use_profile(profile, self.profile_name)
         # What the label field holds.
         self.label = ""
+        # Why the last event couldn't be logged; cleared by the next one that is.
+        self.log_error = ""
 
     @property
     def profile(self) -> Profile:
@@ -51,7 +53,14 @@ class Session:
         return self.profile.default_label or self.current
 
     def log_state(self) -> None:
-        self.events.update(self.current, self.timer, self.label.strip() or self.fallback_label())
+        label = self.label.strip() or self.fallback_label()
+        try:
+            if self.events.update(self.current, self.timer, label):
+                self.log_error = ""
+        except OSError as e:
+            # The timer carries on; the UI shows why the line is missing.
+            where = f" to {e.filename}" if e.filename else ""
+            self.log_error = f"Could not write the log{where}: {e.strerror or e}"
 
     def can_set_time(self) -> bool:
         # Only before starting or once over, so a paused countdown isn't lost by accident.

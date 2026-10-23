@@ -147,7 +147,11 @@ class EventLog:
         self.lines = profile.log_lines
         self.profile = name
 
-    def update(self, mode: str, timer: Stopwatch, label: str = "") -> None:
+    def update(self, mode: str, timer: Stopwatch, label: str = "") -> str | None:
+        """Log the event since the last update, if any, and return it.
+
+        Raises OSError if the line can't be written; the event is not retried.
+        """
         seen = timer.state, timer.elapsed, timer.display()
         before = self._seen.get(mode, (State.IDLE, 0.0, ""))
         self._seen[mode] = seen
@@ -155,6 +159,7 @@ class EventLog:
             # A stop by reset has already zeroed the timer, so report the time it had reached.
             _, elapsed, display = before if seen[0] is State.IDLE else seen
             self._write(mode, event, elapsed, display, label, timer)
+        return event
 
     def _write(
         self, mode: str, event: str, elapsed: float, display: str, label: str, timer: Stopwatch
