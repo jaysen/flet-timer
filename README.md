@@ -1,6 +1,7 @@
 # Tok-o-log (flet)
 
-Functional play with [Flet UI](https://flet.dev).. a desktop timer that logs, in a configurable format, to a configurable file - in my case: a journal page in wiki
+Functional play with [Flet UI](https://flet.dev) - a desktop timer that logs, in a very configurable format, to a configurable file. 
+In my case, I use this for task tracking in journals and project notes within my personal software-eng wiki.
 
 ## Features
 
