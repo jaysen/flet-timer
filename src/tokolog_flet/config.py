@@ -8,6 +8,8 @@ first if missing, and reloads it whenever it changes.
 """
 
 import os
+import subprocess
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from importlib.resources import files
@@ -93,6 +95,15 @@ def create_config(path: Path) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def open_in_editor(path: Path) -> None:
+    """Open ``path`` in the system's default app for it, without waiting."""
+    if sys.platform == "win32":
+        os.startfile(path)
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def config_mtime(path: Path) -> int | None:

@@ -1,9 +1,6 @@
-"""Flet UI entry point. Keep this thin: behaviour lives in timer.py."""
+"""Flet UI entry point. Keep this thin: behaviour lives in session.py and timer.py."""
 
 import asyncio
-import os
-import subprocess
-import sys
 from functools import partial
 from pathlib import Path
 
@@ -13,15 +10,15 @@ from tokolog_flet.config import (
     DEFAULT_PROFILE,
     Config,
     ConfigError,
-    Profile,
     config_mtime,
     config_path,
     create_config,
     load_config,
+    open_in_editor,
 )
-from tokolog_flet.log import EventLog
+from tokolog_flet.session import COUNTDOWN, STOPWATCH, Session, under_way
 from tokolog_flet.state import load_last_profile, save_last_profile
-from tokolog_flet.timer import Countdown, State, Stopwatch, parse_duration
+from tokolog_flet.timer import State
 
 TICK_SECONDS = 0.2
 # How often to look for edits to the config file.
@@ -29,9 +26,7 @@ CONFIG_POLL_SECONDS = 1.0
 # Also picked up by `flet build` as the app icon.
 ICON = Path(__file__).parent.parent / "assets" / "icon.png"
 
-COUNTDOWN = "countdown"
 SET_TIME_TOOLTIP = "Click to set the time, e.g. 25, 1:30 or 1h30m"
-STOPWATCH = "stopwatch"
 # Window and time sizes for the full and compact views.
 FULL_SIZE = (380, 260)
 # Extra window height for the profile picker, and the gap kept under it.
@@ -44,15 +39,6 @@ FULL_BUTTON_WIDTH = 100
 COMPACT_BUTTON_WIDTH = 76
 
 
-def open_in_editor(path: Path) -> None:
-    """Open ``path`` in the system's default app for it, without waiting."""
-    if sys.platform == "win32":
-        os.startfile(path)
-    else:
-        opener = "open" if sys.platform == "darwin" else "xdg-open"
-        subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-
-
 def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     """``config_error`` is why the config file couldn't be used; the defaults stand in."""
     page.title = "Tokolog-flet"
@@ -62,29 +48,10 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     page.window.title_bar_buttons_hidden = True
     page.padding = 4
 
-    profile_name = load_last_profile()
-    if profile_name not in config.profiles:
-        profile_name = DEFAULT_PROFILE
-    profile = config.profile(profile_name)
-    timers: dict[str, Stopwatch] = {
-        COUNTDOWN: Countdown(profile.default_seconds),
-        STOPWATCH: Stopwatch(),
-    }
-    # A profile that allows only one mode starts in it.
-    current = profile.mode or STOPWATCH
-    timer = timers[current]
-    events = EventLog(
-        profile.log_folder,
-        profile.log_file,
-        profile.log_date_format,
-        profile.log_time_format,
-        profile.log_line_format,
-        profile=profile_name,
-        lines=profile.log_lines,
-    )
+    session = Session(config, load_last_profile())
 
     mode = ft.SegmentedButton(
-        selected=[current],
+        selected=[session.current],
         segments=[
             ft.Segment(value=COUNTDOWN, label="Timer"),
             ft.Segment(value=STOPWATCH, label="Stopwatch"),
@@ -103,7 +70,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     )
     # A borderless caption above the time, so it reads as a title rather than a form field.
     label = ft.TextField(
-        hint_text=current,
+        hint_text=session.fallback_label(),
         width=260,
         dense=True,
         text_size=16,
@@ -112,7 +79,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         color=ft.Colors.ON_SURFACE_VARIANT,
         hint_style=ft.TextStyle(color=ft.Colors.OUTLINE),
     )
-    display = ft.Text(timer.display(), size=FULL_TIME_SIZE, weight=ft.FontWeight.W_300)
+    display = ft.Text(session.timer.display(), size=FULL_TIME_SIZE, weight=ft.FontWeight.W_300)
     # Clicking the countdown's time swaps it for this field, styled to look the same.
     time_field = ft.TextField(
         width=300,
@@ -141,81 +108,53 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
 
     def sync_profile_picker() -> None:
         profile_picker.options = [
-            ft.DropdownOption(key=name, text=name) for name in [DEFAULT_PROFILE, *config.profiles]
+            ft.DropdownOption(key=name, text=name)
+            for name in [DEFAULT_PROFILE, *session.config.profiles]
         ]
-        profile_picker.value = profile_name
+        profile_picker.value = session.profile_name
         # Nothing to pick between until the config file names a profile.
-        shown = bool(config.profiles)
+        shown = bool(session.config.profiles)
         profile_picker.visible = shown and not compact
         if not compact:
             # Without the picker the bar only mirrors the top bar, so the content stays centred.
             bottom_bar.height = PICKER_HEIGHT + PICKER_GAP if shown else 24
             page.window.height = FULL_SIZE[1] + (PICKER_HEIGHT if shown else 0)
 
-    def log_state() -> None:
-        events.update(current, timer, (label.value or "").strip() or fallback_label())
-
-    def fallback_label() -> str:
-        # Without a label of its own, a timer takes the profile's, else its mode, as the hint shows.
-        return config.profile(profile_name).default_label or current
-
-    def can_set_time() -> bool:
-        # Only before starting or once over, so a paused countdown isn't lost by accident.
-        return isinstance(timer, Countdown) and timer.state in (
-            State.IDLE,
-            State.STOPPED,
-            State.FINISHED,
-        )
-
-    def switch_mode(new: str) -> None:
-        nonlocal current, timer
-        log_state()
-        timer.reset()
-        log_state()
-        current = new
-        timer = timers[current]
-        mode.selected = [current]
-
     def follow_profile_mode() -> None:
-        locked = config.profile(profile_name).mode
-        # Waits for an idle timer, e.g. after a config edit mid-session, so nothing is cut short.
-        if (
-            locked
-            and locked != current
-            and timer.state in (State.IDLE, State.STOPPED, State.FINISHED)
-            and not time_field.visible
-        ):
-            switch_mode(locked)
+        # Not while the time is being typed, so the typing isn't lost.
+        if not time_field.visible:
+            session.follow_profile_mode()
+        mode.selected = [session.current]
+        locked = session.locked_mode
         mode.disabled = locked is not None
         mode.tooltip = "Mode set by the profile" if locked else "Select mode"
 
     def render() -> None:
         follow_profile_mode()
-        log_state()
-        display.value = timer.display()
-        label.hint_text = fallback_label()
-        editable = can_set_time()
+        session.log_state()
+        state = session.timer.state
+        display.value = session.timer.display()
+        label.hint_text = session.fallback_label()
+        editable = session.can_set_time()
         time_display.mouse_cursor = ft.MouseCursor.CLICK if editable else None
         time_display.tooltip = SET_TIME_TOOLTIP if editable else None
-        start_pause.content = "Pause" if timer.state is State.RUNNING else "Start"
-        start_pause.disabled = timer.state in (State.STOPPED, State.FINISHED)
-        # A run is stopped first, so its time can be read before Reset clears it.
-        in_progress = timer.state in (State.RUNNING, State.PAUSED)
-        stop_reset.content = "Stop" if in_progress else "Reset"
-        stop_reset.disabled = timer.state is State.IDLE
+        start_pause.content = "Pause" if state is State.RUNNING else "Start"
+        start_pause.disabled = state in (State.STOPPED, State.FINISHED)
+        stop_reset.content = "Stop" if under_way(session.timer) else "Reset"
+        stop_reset.disabled = state is State.IDLE
         # A session stays in one log; only a timer that isn't under way can change profile.
-        profile_picker.disabled = timer.state in (State.RUNNING, State.PAUSED)
+        profile_picker.disabled = under_way(session.timer)
         page.update()
 
     async def tick() -> None:
-        ticking = timer
-        while ticking is timer and timer.state is State.RUNNING:
+        ticking = session.timer
+        while ticking is session.timer and ticking.state is State.RUNNING:
             render()
             await asyncio.sleep(TICK_SECONDS)
         render()
 
     async def on_time_click(_: ft.TapEvent[ft.GestureDetector]) -> None:
-        if not can_set_time():
+        if not session.can_set_time():
             return
         time_field.value = display.value
         time_field.selection = ft.TextSelection(0, len(display.value or ""))
@@ -229,10 +168,8 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
             return
         time_field.visible = False
         time_display.visible = True
-        seconds = parse_duration(time_field.value or "") if apply else None
-        if seconds is not None and isinstance(timer, Countdown):
-            timer.duration = seconds
-            timer.reset()
+        if apply:
+            session.set_time(time_field.value or "")
         render()
 
     def on_time_submit(_: ft.Event[ft.TextField]) -> None:
@@ -242,27 +179,22 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
         if e.key == "Escape":
             finish_setting_time(apply=False)
 
+    def on_label_change(_: ft.Event[ft.TextField]) -> None:
+        session.label = label.value or ""
+
     def on_mode_change(_: ft.Event[ft.SegmentedButton]) -> None:
         finish_setting_time(apply=False)
-        switch_mode(mode.selected[0])
+        session.switch_mode(mode.selected[0])
         render()
 
     def on_start_pause(_: ft.Event[ft.Button]) -> None:
-        # Note the state just before acting, so a pause or stop logs the exact time.
-        log_state()
-        if timer.state is State.RUNNING:
-            timer.pause()
-            render()
-        else:
-            timer.start()
+        if session.start_pause():
             page.run_task(tick)
+        else:
+            render()
 
     def on_stop_reset(_: ft.Event[ft.OutlinedButton]) -> None:
-        log_state()
-        if timer.state in (State.RUNNING, State.PAUSED):
-            timer.stop()
-        else:
-            timer.reset()
+        session.stop_reset()
         render()
 
     def edit_config(_: ft.Event[ft.IconButton] | ft.Event[ft.Container]) -> None:
@@ -295,43 +227,13 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
                 page.update()
                 continue
             show_error("")
-            apply_config(new)
-
-    def use_profile(old: Profile, new: Profile) -> None:
-        countdown = timers[COUNTDOWN]
-        # Only an untouched countdown follows the new default; a set or running one keeps its time.
-        if (
-            isinstance(countdown, Countdown)
-            and countdown.state is State.IDLE
-            and countdown.duration == old.default_seconds
-        ):
-            countdown.duration = new.default_seconds
-        # Same log object, so a running timer isn't taken for a fresh start.
-        events.folder = new.log_folder
-        events.file = new.log_file
-        events.date_format = new.log_date_format
-        events.time_format = new.log_time_format
-        events.line_format = new.log_line_format
-        events.lines = new.log_lines
-        events.profile = profile_name
-
-    def apply_config(new: Config) -> None:
-        nonlocal config, profile_name
-        old = config.profile(profile_name)
-        config = new
-        # The picked profile may have been removed or renamed.
-        if profile_name not in new.profiles:
-            profile_name = DEFAULT_PROFILE
-        use_profile(old, new.profile(profile_name))
-        sync_profile_picker()
-        render()
+            session.apply_config(new)
+            sync_profile_picker()
+            render()
 
     def on_profile_select(_: ft.Event[ft.Dropdown]) -> None:
-        nonlocal profile_name
-        old = config.profile(profile_name)
-        profile_name = profile_picker.value or DEFAULT_PROFILE
-        use_profile(old, config.profile(profile_name))
-        save_last_profile(profile_name)
+        session.select_profile(profile_picker.value or DEFAULT_PROFILE)
+        save_last_profile(session.profile_name)
         render()
 
     def on_minimize(_: ft.Event[ft.IconButton]) -> None:
@@ -438,6 +340,7 @@ def main(page: ft.Page, config: Config, config_error: str = "") -> None:
     sync_profile_picker()
     mode.on_change = on_mode_change
     profile_picker.on_select = on_profile_select
+    label.on_change = on_label_change
     time_display.on_tap = on_time_click
     time_field.on_submit = on_time_submit
     # Clicking away, e.g. on Start, keeps what was typed.
